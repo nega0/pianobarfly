@@ -1046,7 +1046,7 @@ static int _BarFlyTagID3Write(BarFly_t const* fly, uint8_t const* cover_art,
 
 	status = BarFlyID3AddFrame(tag, ID3_FRAME_TITLE, fly->title, settings);
 	if (status != 0) {
-		BarUiMsg(settings, MSG_ERR, "Failed to write album to tag.\n");
+		BarUiMsg(settings, MSG_ERR, "Failed to write title to tag.\n");
 		goto error;
 	}
 
