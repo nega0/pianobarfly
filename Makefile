@@ -1,4 +1,4 @@
-# makefile of pianobar
+# makefile of pianobarfly
 
 PREFIX:=/usr/local
 BINDIR:=${PREFIX}/bin
@@ -24,7 +24,10 @@ PIANOBAR_SRC=\
 		${PIANOBAR_DIR}/ui_act.c \
 		${PIANOBAR_DIR}/ui.c \
 		${PIANOBAR_DIR}/ui_readline.c \
-		${PIANOBAR_DIR}/ui_dispatch.c
+		${PIANOBAR_DIR}/ui_dispatch.c \
+		${PIANOBAR_DIR}/fly.c \
+		${PIANOBAR_DIR}/fly_id3.c \
+		${PIANOBAR_DIR}/fly_mp4.c
 PIANOBAR_HDR=\
 		${PIANOBAR_DIR}/player.h \
 		${PIANOBAR_DIR}/settings.h \
@@ -33,7 +36,10 @@ PIANOBAR_HDR=\
 		${PIANOBAR_DIR}/ui.h \
 		${PIANOBAR_DIR}/ui_readline.h \
 		${PIANOBAR_DIR}/main.h \
-		${PIANOBAR_DIR}/config.h
+		${PIANOBAR_DIR}/config.h \
+		${PIANOBAR_DIR}/fly.h \
+		${PIANOBAR_DIR}/fly_id3.h \
+		${PIANOBAR_DIR}/fly_mp4.h
 PIANOBAR_OBJ=${PIANOBAR_SRC:.c=.o}
 
 LIBPIANO_DIR=src/libpiano
@@ -85,17 +91,25 @@ else
 	LIBMAD_LDFLAGS=-lmad
 endif
 
-# build pianobar
+ifeq (${DISABLE_ID3TAG}, 1)
+	LIBID3TAG_CFLAGS=
+	LIBID3TAG_LDFLAGS=
+else
+	LIBID3TAG_CFLAGS=-DENABLE_ID3TAG
+	LIBID3TAG_LDFLAGS=-lid3tag
+endif
+
+# build pianobarfly
 ifeq (${DYNLINK},1)
-pianobar: ${PIANOBAR_OBJ} ${PIANOBAR_HDR} libpiano.so.0
+pianobarfly: ${PIANOBAR_OBJ} ${PIANOBAR_HDR} libpiano.so.0
 	${CC} -o $@ ${PIANOBAR_OBJ} ${LDFLAGS} -lao -lpthread -lm -L. -lpiano \
 			${LIBFAAD_LDFLAGS} ${LIBMAD_LDFLAGS}
 else
-pianobar: ${PIANOBAR_OBJ} ${PIANOBAR_HDR} ${LIBPIANO_OBJ} ${LIBWAITRESS_OBJ} \
+pianobarfly: ${PIANOBAR_OBJ} ${PIANOBAR_HDR} ${LIBPIANO_OBJ} ${LIBWAITRESS_OBJ} \
 		${LIBWAITRESS_HDR} ${LIBEZXML_OBJ} ${LIBEZXML_HDR}
 	${CC} ${CFLAGS} ${LDFLAGS} ${PIANOBAR_OBJ} ${LIBPIANO_OBJ} \
 			${LIBWAITRESS_OBJ} ${LIBEZXML_OBJ} -lao -lpthread -lm \
-			${LIBFAAD_LDFLAGS} ${LIBMAD_LDFLAGS} -o $@
+			${LIBFAAD_LDFLAGS} ${LIBMAD_LDFLAGS} ${LIBID3TAG_LDFLAGS} -o $@
 endif
 
 # build shared and static libpiano
@@ -112,7 +126,7 @@ libpiano.so.0: ${LIBPIANO_RELOBJ} ${LIBPIANO_HDR} ${LIBWAITRESS_RELOBJ} \
 %.o: %.c
 	${CC} ${CFLAGS} -I ${LIBPIANO_INCLUDE} -I ${LIBWAITRESS_INCLUDE} \
 			-I ${LIBEZXML_INCLUDE} ${LIBFAAD_CFLAGS} \
-			${LIBMAD_CFLAGS} -c -o $@ $<
+			${LIBMAD_CFLAGS} ${LIBID3TAG_CFLAGS} -c -o $@ $<
 
 # create position independent code (for shared libraries)
 %.lo: %.c
@@ -122,12 +136,12 @@ libpiano.so.0: ${LIBPIANO_RELOBJ} ${LIBPIANO_HDR} ${LIBWAITRESS_RELOBJ} \
 clean:
 	${RM} ${PIANOBAR_OBJ} ${LIBPIANO_OBJ} ${LIBWAITRESS_OBJ} ${LIBWAITRESS_OBJ}/test.o \
 			${LIBEZXML_OBJ} ${LIBPIANO_RELOBJ} ${LIBWAITRESS_RELOBJ} \
-			${LIBEZXML_RELOBJ} pianobar libpiano.so* libpiano.a waitress-test
+			${LIBEZXML_RELOBJ} pianobarfly libpiano.so* libpiano.a waitress-test
 
-all: pianobar
+all: pianobarfly
 
-debug: pianobar
-debug: CFLAGS=-Wall -pedantic -ggdb
+debug: pianobarfly
+debug: CFLAGS=-Wall -pedantic -ggdb -DDEBUG
 
 waitress-test: CFLAGS+= -DTEST
 waitress-test: ${LIBWAITRESS_OBJ}
@@ -137,12 +151,12 @@ test: waitress-test
 	./waitress-test
 
 ifeq (${DYNLINK},1)
-install: pianobar install-libpiano
+install: pianobarfly install-libpiano
 else
-install: pianobar
+install: pianobarfly
 endif
 	install -d ${DESTDIR}/${BINDIR}/
-	install -m755 pianobar ${DESTDIR}/${BINDIR}/
+	install -m755 pianobarfly ${DESTDIR}/${BINDIR}/
 	install -d ${DESTDIR}/${MANDIR}/man1/
 	install -m644 contrib/pianobar.1 ${DESTDIR}/${MANDIR}/man1/
 

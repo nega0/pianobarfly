@@ -1,20 +1,21 @@
-.TH pianobar 1
+.TH pianobarfly 1
 
 .SH NAME
-pianobar \- console pandora.com music player
+pianobarfly \- console pandora.com music player and stream ripper
 
 .SH SYNOPSIS
-.B pianobar
+.B pianobarfly
 
 .SH DESCRIPTION
-.B pianobar
+.B pianobarfly
 is a lightweight console music player for the personalized online radio
-pandora.com.
+pandora.com.  Additionally the audio streams are written to files while they 
+are being listened to.
 
 .SH FILES
-.I $XDG_CONFIG_HOME/pianobar/config
+.I $XDG_CONFIG_HOME/pianobarfly/config
 or
-.I ~/.config/pianobar/config
+.I ~/.config/pianobarfly/config
 .RS
 Per-user configuration file. See
 .B CONFIGURATION.
@@ -35,7 +36,7 @@ lines. Each terminated with a newline (\\n) character. Keys and values are both
 case sensitive.
 
 act_* keys control 
-.B pianobar's
+.B pianobarfly's
 key-bindings. Every one-byte character except for \\x00 and the
 special value
 .B disabled
@@ -112,7 +113,7 @@ Pause/Continue
 .TP
 .B act_quit = q
 Quit
-.B pianobar.
+.B pianobarfly.
 
 .TP
 .B act_stationrename = r
@@ -154,6 +155,32 @@ Select audio format. aacplus is default if both libraries (faad, mad) are
 available. mp3-hifi is available for Pandora One customers only.
 
 .TP
+.B audio_file_dir = ./mp3
+The directory to which the audio files will be written.  The files will be
+written into subdirectories in the format of artist/album/artist_-_title.
+
+.TP
+.B audio_file_name = %artist/%album/%artist-%title
+The file name pattern that will be used to create the names of the recoreded
+audio files.  This is relative to the audio file directory.  A '/' creates a
+directory.
+
+.B %artist
+The artist name
+
+.B %album
+The album name
+
+.B %disc
+The disc number
+
+.B %track
+The track number
+
+.B %title
+The song title
+
+.TP
 .B autostart_station = stationid
 Play this station when starting up. You can get the
 .B stationid
@@ -167,9 +194,13 @@ or the key you defined in
 Icon for banned songs.
 
 .TP
-.B control_proxy = http://user:password@host:port/
+.B control_proxy = http://host:port/
 Non-american users need a proxy to use pandora.com. Only the xmlrpc interface
 will use this proxy. The music is streamed directly.
+
+.TP
+.B embed_cover = true
+If true the cover art will be embedded in the audio file's meta data.
 
 .TP
 .B event_command = path
@@ -243,9 +274,9 @@ Icon for loved songs.
 Your pandora.com password. Plain-text.
 
 .TP
-.B proxy = http://user:password@host:port/
+.B proxy = http://host:port/
 Use a http proxy. Note that this setting overrides the http_proxy environment
-variable. Only "Basic" http authentication is supported.
+variable.
 
 .TP
 .B sort = {name_az, name_za, quickmix_01_name_az, quickmix_01_name_za, quickmix_10_name_az, quickmix_10_name_za}
@@ -258,29 +289,33 @@ bottom) and name from z to a.
 Your pandora.com username.
 
 .TP
+.B use_spaces = false
+If true spaces in file names will not be replaced with '_'.
+
+.TP
 .B volume = 0
 Initial volume correction in dB. Usually between -30 and +5.
 
 .SH REMOTE CONTROL
-.B pianobar
+.B pianobarfly
 can be controlled through a fifo. You have to create it yourself by executing
 
- mkfifo ~/.config/pianobar/ctl
+ mkfifo ~/.config/pianobarfly/ctl
 
 Adjust the path if you set up a $XDG_CONFIG_HOME. Afterwards you can write
 commands directly into the fifo. Example (next song):
 
- echo -n 'n' > ~/.config/pianobar/ctl
+ echo -n 'n' > ~/.config/pianobarfly/ctl
 
 .B n
 is the keybinding for "next song". If you customized your keybindings you have to use these characters to control
-.B pianobar.
+.B pianobarfly.
 .I This behaviour may change in the future!
 
 Another example:
 
  while true; do;
-    nc -l -p 12345 -s localhost localhost > ~/.config/pianobar/ctl;
+    nc -l -p 12345 -s localhost localhost > ~/.config/pianobarfly/ctl;
     sleep 1;
  done
 
@@ -288,12 +323,12 @@ Another example:
 
 .SH EVENTCMD
 
-.B pianobar
+.B pianobarfly
 can report certain "events" to an external application (see
 .B CONFIGURATION
 ). This application is started with the event name as it's first argument. More
-information like error code and description, was well as song information
-related to the current event, is supplied through stdin.
+information (artist, title, album, stationName, error code, error description,
+song length in milliseconds, rating, album art url) is supplied through stdin.
 
 Currently supported events are: artistbookmark, songban, songbookmark,
 songexplain, songfinish, songlove, songmove, songshelf, songstart,
@@ -303,7 +338,7 @@ stationfetchinfo, stationfetchplaylist, stationquickmixtoggle, stationrename,
 userlogin, usergetstations
 
 An example script can be found in the contrib/ directory of
-.B pianobar's
+.B pianobarfly's
 source distribution.
 
 .SH AUTHOR

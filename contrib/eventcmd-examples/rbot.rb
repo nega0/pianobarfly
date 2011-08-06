@@ -1,6 +1,6 @@
 #!/usr/bin/ruby
 
-# pianobar event script to make rbot send currently playing song to an IRC
+# pianobarfly event script to make rbot send currently playing song to an IRC
 # channel
 
 # Copyright (c) 2010
@@ -26,8 +26,8 @@
 
 # for setting up rbot-remote see rbot/bin/rbot-remote
 
-# add this script to ~/.config/pianobar/config by adding
-# event_command = /home/user/.config/pianobar/rbot.rb
+# add this script to ~/.config/pianobarfly/config by adding
+# event_command = /home/user/.config/pianobarfly/rbot.rb
 
 # make sure these are quoted correctly for popen
 rbot_remote = '/home/user/src/rbot/bin/rbot-remote'

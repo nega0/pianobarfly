@@ -23,11 +23,11 @@
 
 # Use contrib/eventcmd-examples/dmenu.pl to capture station names
 
-STATION=$(cat /tmp/pianobar_stations | \
+STATION=$(cat /tmp/pianobarfly_stations | \
 	dmenu -nf '#888888' -nb '#222222' -sf '#ffffff' -i \
 	-sb '#285577' -p 'choose station:' -fn 'Terminus 8' | \
 	sed -e 's/\([0-9]\+\)\..*/\1/')
 
 
-[[ -n $STATION ]] && echo "s$STATION" > ~/.config/pianobar/ctl
+[[ -n $STATION ]] && echo "s$STATION" > ~/.config/pianobarfly/ctl
 

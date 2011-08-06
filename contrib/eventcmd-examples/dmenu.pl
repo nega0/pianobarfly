@@ -25,7 +25,7 @@ use strict;
 use warnings;
 
 # Use this script to be able to use change-station-dmenu.sh as
-# event_command = $HOME/.config/pianobar/dmenu.pl
+# event_command = $HOME/.config/pianobarfly/dmenu.pl
 
 # (taken from https://github.com/jcmuller/pianobar-notify)
 
@@ -33,7 +33,7 @@ if (my $action = shift @ARGV)
 {
 	if ($action eq 'songstart')
 	{
-		my $stations = '/tmp/pianobar_stations';
+		my $stations = '/tmp/pianobarfly_stations';
 		open(my $fh, ">$stations") or die "Couldn't open $stations for writing: $!";
 
 		while (<STDIN>)

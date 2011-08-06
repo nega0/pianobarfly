@@ -102,6 +102,12 @@ void BarUiMsg (const BarSettings_t *settings, const BarUiMsg_t type,
 	assert (format != NULL);
 
 	switch (type) {
+		case MSG_DEBUG:
+			#ifndef DEBUG
+			return;
+			#endif
+			break;
+
 		case MSG_INFO:
 		case MSG_PLAYING:
 		case MSG_TIME:
@@ -760,7 +766,7 @@ size_t BarUiListSongs (const BarSettings_t *settings,
 void BarUiStartEventCmd (const BarSettings_t *settings, const char *type,
 		const PianoStation_t *curStation, const PianoSong_t *curSong,
 		const struct audioPlayer *player, PianoStation_t *stations,
-                PianoReturn_t pRet, WaitressReturn_t wRet) {
+		PianoReturn_t pRet, WaitressReturn_t wRet) {
 	pid_t chld;
 	int pipeFd[2];
 

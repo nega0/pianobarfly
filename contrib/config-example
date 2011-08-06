@@ -1,5 +1,5 @@
-# This is an example configuration file for pianobar. You may remove the # from
-# lines you need and copy/move this file to ~/.config/pianobar/config
+# This is an example configuration file for pianobarfly. You may remove the #
+# from lines you need and copy/move this file to ~/.config/pianobarfly/config
 # See manpage for a description of the config keys
 #
 # User
@@ -32,15 +32,31 @@
 #act_voldown = (
 #act_volup = )
 
+# Recording Settings
+#audio_file_dir = ./mp3
+# The file name pattern relative to the audio file directory.  A '/' creates a
+# directory.
+# %artist = The artist name
+# %album = The album name
+# %disc = The disc number
+# %track = The track number
+# %title = The song title
+#audio_file_name = %artist/%album/%artist-%title
+# If true spaces will not be replaced with '_' in the file names.
+#use_spaces = false
+# If true the cover art will be embedded in the audio file's meta data.
+#embed_cover = true
+
 # Misc
 # mp3, mp3-hifi or aacplus
-#audio_format = mp3
+#audio_format = aacplus
 #autostart_station = 123456
-#event_command = /home/user/.config/pianobar/eventcmd
+#event_command = /home/user/.config/pianobarfly/eventcmd
 #sort = quickmix_10_name_az
 #love_icon = [+]
 #ban_icon = [-]
 #volume = 0
+#history = 5
 
 # Format strings
 #format_nowplaying_song = [32m%t[0m by [34m%a[0m on %l[31m%r[0m%@%s

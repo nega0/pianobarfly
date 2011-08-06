@@ -1,8 +1,8 @@
 #!/bin/sh
 
-# extract shared station id from station homepage and add it to pianobar
+# extract shared station id from station homepage and add it to pianobarfly
 
-ctl="$HOME/.config/pianobar/ctl"
+ctl="$HOME/.config/pianobarfly/ctl"
 
 if [ -z "$1" ]; then
 	echo "Usage: `basename $0` <station url>"

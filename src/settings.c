@@ -23,12 +23,10 @@ THE SOFTWARE.
 
 /* application settings */
 
-#ifndef __FreeBSD__
 #define _POSIX_C_SOURCE 1 /* PATH_MAX */
 #define _BSD_SOURCE /* strdup() */
-#define _DARWIN_C_SOURCE /* strdup() on OS X */
-#endif
 
+#include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -38,6 +36,9 @@ THE SOFTWARE.
 #include "settings.h"
 #include "config.h"
 #include "ui_dispatch.h"
+
+#define BAR_DEFAULT_AUDIO_FILE_DIR "./mp3"
+#define BAR_DEFAULT_AUDIO_FILE_NAME "%artist/%album/%artist-%title"
 
 #define streq(a, b) (strcmp (a, b) == 0)
 
@@ -89,6 +90,8 @@ void BarSettingsDestroy (BarSettings_t *settings) {
 	free (settings->loveIcon);
 	free (settings->banIcon);
 	free (settings->atIcon);
+	free (settings->audioFileDir);
+	free (settings->audioFileName);
 	free (settings->npSongFormat);
 	free (settings->npStationFormat);
 	for (size_t i = 0; i < MSG_COUNT; i++) {
@@ -104,7 +107,7 @@ void BarSettingsDestroy (BarSettings_t *settings) {
  */
 void BarSettingsRead (BarSettings_t *settings) {
 	char configfile[PATH_MAX], key[256], val[256];
-	FILE *configfd;
+	FILE *configfd = NULL;
 	static const char *formatMsgPrefix = "format_msg_";
 
 	assert (sizeof (settings->keys) / sizeof (*settings->keys) ==
@@ -142,119 +145,141 @@ void BarSettingsRead (BarSettings_t *settings) {
 	settings->msgFormat[MSG_LIST].prefix = strdup ("\t");
 	settings->msgFormat[MSG_LIST].postfix = NULL;
 
+	settings->useSpaces = false;
+	settings->embedCover = true;
+
 	for (size_t i = 0; i < BAR_KS_COUNT; i++) {
 		settings->keys[i] = dispatchActions[i].defaultKey;
 	}
 
 	BarGetXdgConfigDir (PACKAGE "/config", configfile, sizeof (configfile));
-	if ((configfd = fopen (configfile, "r")) == NULL) {
-		return;
-	}
 
 	/* read config file */
-	while (1) {
-		int scanRet = fscanf (configfd, "%255s = %255[^\n]", key, val);
-		if (scanRet == EOF) {
-			break;
-		} else if (scanRet != 2) {
-			/* invalid config line */
-			continue;
-		}
-		if (streq ("control_proxy", key)) {
-			settings->controlProxy = strdup (val);
-		} else if (streq ("proxy", key)) {
-			settings->proxy = strdup (val);
-		} else if (streq ("user", key)) {
-			settings->username = strdup (val);
-		} else if (streq ("password", key)) {
-			settings->password = strdup (val);
-		} else if (memcmp ("act_", key, 4) == 0) {
-			size_t i;
-			/* keyboard shortcuts */
-			for (i = 0; i < BAR_KS_COUNT; i++) {
-				if (streq (dispatchActions[i].configKey, key)) {
-					if (streq (val, "disabled")) {
-						settings->keys[i] = BAR_KS_DISABLED;
-					} else {
-						settings->keys[i] = val[0];
+	if ((configfd = fopen (configfile, "r")) != NULL) {
+		while (1) {
+			int scanRet = fscanf (configfd, "%255s = %255[^\n]", key, val);
+			if (scanRet == EOF) {
+				break;
+			} else if (scanRet != 2) {
+				/* invalid config line */
+				continue;
+			}
+			if (streq ("control_proxy", key)) {
+				free (settings->controlProxy);
+				settings->controlProxy = strdup (val);
+			} else if (streq ("proxy", key)) {
+				free (settings->proxy);
+				settings->proxy = strdup (val);
+			} else if (streq ("user", key)) {
+				free (settings->username);
+				settings->username = strdup (val);
+			} else if (streq ("password", key)) {
+				free (settings->password);
+				settings->password = strdup (val);
+			} else if (memcmp ("act_", key, 4) == 0) {
+				size_t i;
+				/* keyboard shortcuts */
+				for (i = 0; i < BAR_KS_COUNT; i++) {
+					if (streq (dispatchActions[i].configKey, key)) {
+						if (streq (val, "disabled")) {
+							settings->keys[i] = BAR_KS_DISABLED;
+						} else {
+							settings->keys[i] = val[0];
+						}
+						break;
 					}
-					break;
 				}
-			}
-		} else if (streq ("audio_format", key)) {
-			if (streq (val, "aacplus")) {
-				settings->audioFormat = PIANO_AF_AACPLUS;
-			} else if (streq (val, "mp3")) {
-				settings->audioFormat = PIANO_AF_MP3;
-			} else if (streq (val, "mp3-hifi")) {
-				settings->audioFormat = PIANO_AF_MP3_HI;
-			}
-		} else if (streq ("autostart_station", key)) {
-			settings->autostartStation = strdup (val);
-		} else if (streq ("event_command", key)) {
-			settings->eventCmd = strdup (val);
-		} else if (streq ("history", key)) {
-			settings->history = atoi (val);
-		} else if (streq ("sort", key)) {
-			size_t i;
-			static const char *mapping[] = {"name_az",
-					"name_za",
-					"quickmix_01_name_az",
-					"quickmix_01_name_za",
-					"quickmix_10_name_az",
-					"quickmix_10_name_za",
-					};
-			for (i = 0; i < BAR_SORT_COUNT; i++) {
-				if (streq (mapping[i], val)) {
-					settings->sortOrder = i;
-					break;
+			} else if (streq ("audio_format", key)) {
+				if (streq (val, "aacplus")) {
+					settings->audioFormat = PIANO_AF_AACPLUS;
+				} else if (streq (val, "mp3")) {
+					settings->audioFormat = PIANO_AF_MP3;
+				} else if (streq (val, "mp3-hifi")) {
+					settings->audioFormat = PIANO_AF_MP3_HI;
 				}
-			}
-		} else if (streq ("love_icon", key)) {
-			free (settings->loveIcon);
-			settings->loveIcon = strdup (val);
-		} else if (streq ("ban_icon", key)) {
-			free (settings->banIcon);
-			settings->banIcon = strdup (val);
-		} else if (streq ("at_icon", key)) {
+			} else if (streq ("audio_file_dir", key)) {
+				free (settings->audioFileDir);
+				settings->audioFileDir = strdup(val);
+			} else if (streq ("audio_file_name", key)) {
+				free (settings->audioFileName);
+				settings->audioFileName = strdup(val);
+			} else if (streq ("use_spaces", key)) {
+				if (streq ("true", val)) {
+					settings->useSpaces = true;
+				}
+			} else if (streq ("embed_cover", key)) {
+				if (!streq ("true", val)) {
+					settings->embedCover = false;
+				}
+			} else if (streq ("autostart_station", key)) {
+				free (settings->autostartStation);
+				settings->autostartStation = strdup (val);
+			} else if (streq ("event_command", key)) {
+				free (settings->eventCmd);
+				settings->eventCmd = strdup (val);
+			} else if (streq ("history", key)) {
+				settings->history = atoi (val);
+			} else if (streq ("sort", key)) {
+				size_t i;
+				static const char *mapping[] = {"name_az",
+						"name_za",
+						"quickmix_01_name_az",
+						"quickmix_01_name_za",
+						"quickmix_10_name_az",
+						"quickmix_10_name_za",
+						};
+				for (i = 0; i < BAR_SORT_COUNT; i++) {
+					if (streq (mapping[i], val)) {
+						settings->sortOrder = i;
+						break;
+					}
+				}
+			} else if (streq ("love_icon", key)) {
+				free (settings->loveIcon);
+				settings->loveIcon = strdup (val);
+			} else if (streq ("ban_icon", key)) {
+				free (settings->banIcon);
+				settings->banIcon = strdup (val);
+			} else if (streq ("at_icon", key)) {
 			free (settings->atIcon);
 			settings->atIcon = strdup (val);
-		} else if (streq ("volume", key)) {
-			settings->volume = atoi (val);
-		} else if (streq ("format_nowplaying_song", key)) {
-			free (settings->npSongFormat);
-			settings->npSongFormat = strdup (val);
-		} else if (streq ("format_nowplaying_station", key)) {
-			free (settings->npStationFormat);
-			settings->npStationFormat = strdup (val);
-		} else if (strncmp (formatMsgPrefix, key,
-				strlen (formatMsgPrefix)) == 0) {
-			static const char *mapping[] = {"none", "info", "nowplaying",
-					"time", "err", "question", "list"};
-			const char *typeStart = key + strlen (formatMsgPrefix);
-			for (size_t i = 0; i < sizeof (mapping) / sizeof (*mapping); i++) {
-				if (streq (typeStart, mapping[i])) {
-					const char *formatPos = strstr (val, "%s");
+			} else if (streq ("volume", key)) {
+				settings->volume = atoi (val);
+			} else if (streq ("format_nowplaying_song", key)) {
+				free (settings->npSongFormat);
+				settings->npSongFormat = strdup (val);
+			} else if (streq ("format_nowplaying_station", key)) {
+				free (settings->npStationFormat);
+				settings->npStationFormat = strdup (val);
+			} else if (strncmp (formatMsgPrefix, key,
+					strlen (formatMsgPrefix)) == 0) {
+				static const char *mapping[] = {"none", "info", "nowplaying",
+						"time", "err", "question", "list"};
+				const char *typeStart = key + strlen (formatMsgPrefix);
+				for (size_t i = 0; i < sizeof (mapping) / sizeof (*mapping); i++) {
+					if (streq (typeStart, mapping[i])) {
+						const char *formatPos = strstr (val, "%s");
 					
-					/* keep default if there is no format character */
-					if (formatPos != NULL) {
-						BarMsgFormatStr_t *format = &settings->msgFormat[i];
+						/* keep default if there is no format character */
+						if (formatPos != NULL) {
+							BarMsgFormatStr_t *format = &settings->msgFormat[i];
 
-						free (format->prefix);
-						free (format->postfix);
+							free (format->prefix);
+							free (format->postfix);
 
-						const size_t prefixLen = formatPos - val;
-						format->prefix = calloc (prefixLen + 1,
-								sizeof (*format->prefix));
-						memcpy (format->prefix, val, prefixLen);
+							const size_t prefixLen = formatPos - val;
+							format->prefix = calloc (prefixLen + 1,
+									sizeof (*format->prefix));
+							memcpy (format->prefix, val, prefixLen);
 
-						const size_t postfixLen = strlen (val) -
-								(formatPos-val) - 2;
-						format->postfix = calloc (postfixLen + 1,
-								sizeof (*format->postfix));
-						memcpy (format->postfix, formatPos+2, postfixLen);
+							const size_t postfixLen = strlen (val) -
+									(formatPos-val) - 2;
+							format->postfix = calloc (postfixLen + 1,
+									sizeof (*format->postfix));
+							memcpy (format->postfix, formatPos+2, postfixLen);
+						}
+						break;
 					}
-					break;
 				}
 			}
 		}
@@ -268,5 +293,19 @@ void BarSettingsRead (BarSettings_t *settings) {
 		}
 	}
 
-	fclose (configfd);
+	/* Use a local ./mp3 directory if no audio file directory was set. */
+	if (settings->audioFileDir == NULL) {
+		settings->audioFileDir = strdup(BAR_DEFAULT_AUDIO_FILE_DIR);
+	}
+
+	/* Use the default file name if none was set. */
+	if (settings->audioFileName == NULL) {
+		settings->audioFileName = strdup(BAR_DEFAULT_AUDIO_FILE_NAME);
+	}
+
+	if (configfd != NULL) {
+		fclose (configfd);
+	}
+
+	return;
 }

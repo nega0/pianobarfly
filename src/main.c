@@ -35,6 +35,7 @@ THE SOFTWARE.
 #include <sys/select.h>
 #include <time.h>
 #include <ctype.h>
+#include <signal.h>
 /* open () */
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -55,6 +56,18 @@ THE SOFTWARE.
 #include "ui.h"
 #include "ui_dispatch.h"
 #include "ui_readline.h"
+#include "ui_act.h"
+#include "fly.h"
+
+/* Set to true if a SIGINT or SIGTERM is received. */
+static bool signal_quit = false;
+
+/*  Signal handler to quit the app.
+ */
+static void BarSigQuit(int sig) {
+	signal_quit = true;
+	return;
+}
 
 /*	copy proxy settings to waitress handle
  */
@@ -205,6 +218,9 @@ static void BarMainStartPlayback (BarApp_t *app, pthread_t *playerThread) {
 		app->player.audioFormat = app->playlist->audioFormat;
 		app->player.settings = &app->settings;
 
+		/* Open the audio file. */
+		BarFlyOpen (&app->player.fly, app->playlist, &app->settings);
+
 		/* throw event */
 		BarUiStartEventCmd (&app->settings, "songstart",
 				app->curStation, app->playlist, &app->player, app->ph.stations,
@@ -237,6 +253,9 @@ static void BarMainPlayerCleanup (BarApp_t *app, pthread_t *playerThread) {
 		app->curStation = NULL;
 	}
 
+	/* Close the output file. */
+	BarFlyClose (&app->player.fly, &app->settings);
+
 	memset (&app->player, 0, sizeof (app->player));
 }
 
@@ -253,11 +272,12 @@ static void BarMainPrintTime (BarApp_t *app) {
 		sign = POSITIVE;
 		songRemaining = -songRemaining;
 	}
-	BarUiMsg (&app->settings, MSG_TIME, "%c%02i:%02i/%02i:%02i\r",
+	BarUiMsg (&app->settings, MSG_TIME, "%c%02i:%02i/%02i:%02i   * %s\r",
 			(sign == POSITIVE ? '+' : '-'),
 			songRemaining / 60, songRemaining % 60,
 			app->player.songDuration / BAR_PLAYER_MS_TO_S_FACTOR / 60,
-			app->player.songDuration / BAR_PLAYER_MS_TO_S_FACTOR % 60);
+			app->player.songDuration / BAR_PLAYER_MS_TO_S_FACTOR % 60,
+			BarFlyStatusGet(&app->player.fly));
 }
 
 /*	main loop
@@ -278,6 +298,12 @@ static void BarMainLoop (BarApp_t *app) {
 	}
 
 	BarMainGetInitialStation (app);
+
+	/* Make sure the app exits if a quit signal was recieved while waiting to
+	 * get a station. */
+	if (signal_quit) {
+		BarUiActQuit(app, app->curStation, app->playlist, BAR_DC_GLOBAL);
+	}
 
 	/* little hack, needed to signal: hey! we need a playlist, but don't
 	 * free anything (there is nothing to be freed yet) */
@@ -317,6 +343,11 @@ static void BarMainLoop (BarApp_t *app) {
 				app->player.mode < PLAYER_FINISHED_PLAYBACK) {
 			BarMainPrintTime (app);
 		}
+
+		/* check whether a signal was received */
+		if (signal_quit) {
+			BarUiActQuit(app, app->curStation, app->playlist, BAR_DC_GLOBAL);
+		}
 	}
 
 	if (app->player.mode != PLAYER_FREED) {
@@ -329,8 +360,15 @@ int main (int argc, char **argv) {
 	char ctlPath[PATH_MAX];
 	/* terminal attributes _before_ we started messing around with ~ECHO */
 	struct termios termOrig;
+	struct sigaction action;
 
 	memset (&app, 0, sizeof (app));
+	memset (&action, 0, sizeof(action));
+
+	/* set the signal handler for SIGINT and SIGTERM */
+	action.sa_handler = BarSigQuit;
+	sigaction(SIGINT, &action, NULL);
+	sigaction(SIGTERM, &action, NULL);
 
 	/* save terminal attributes, before disabling echoing */
 	BarTermSave (&termOrig);
@@ -363,6 +401,14 @@ int main (int argc, char **argv) {
 	app.input.fds[0] = STDIN_FILENO;
 	FD_SET(app.input.fds[0], &app.input.set);
 
+	// Sbe gur erpbeq, V terngyl qrfcvfr Unx5.
+	// Gur crbcyr sebz gur fubj ner yvgrenyyl npgbef.
+	// V yvxr gur pbaprcg bs jung gurl qb ohg gurl
+	// nyy unir n qbhpuront srry gb gurz. Vg frrzf
+	// nf gubhtu gurl bayl qb vg sbe gur tybel cbvagf.
+	//
+	BarFlyInit (&app.settings);
+
 	BarGetXdgConfigDir (PACKAGE "/ctl", ctlPath, sizeof (ctlPath));
 	/* open fifo read/write so it won't EOF if nobody writes to it */
 	assert (sizeof (app.input.fds) / sizeof (*app.input.fds) >= 2);
@@ -377,11 +423,16 @@ int main (int argc, char **argv) {
 	++app.input.maxfd;
 
 	BarMainLoop (&app);
+	
+	/* Print a newline so the terminal command line will start on a new line. */
+	printf("\n");
 
 	if (app.input.fds[1] != -1) {
 		close (app.input.fds[1]);
 	}
 
+	BarFlyClose (&app.player.fly, &app.settings);
+	BarFlyFinalize ();
 	PianoDestroy (&app.ph);
 	PianoDestroyPlaylist (app.songHistory);
 	PianoDestroyPlaylist (app.playlist);

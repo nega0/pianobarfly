@@ -147,7 +147,7 @@ static void PianoXmlStructParser (const ezxml_t structRoot,
 	char *key;
 
 	/* get all <member> nodes */
-    for (curNode = ezxml_child (structRoot, "member"); curNode; curNode = curNode->next) {
+	for (curNode = ezxml_child (structRoot, "member"); curNode; curNode = curNode->next) {
 		/* reset variables */
 		key = NULL;
 		valueNode = keyNode = NULL;
@@ -311,6 +311,10 @@ static void PianoXmlParsePlaylistCb (const char *key, const ezxml_t value,
 		song->feedbackId = strdup (valueStr);
 	} else if (strcmp ("songDetailURL", key) == 0) {
 		song->detailUrl = strdup (valueStr);
+	} else if (strcmp ("albumDetailURL", key) == 0) {
+		song->albumDetailURL = strdup (valueStr);
+	} else if (strcmp ("albumExplorerUrl", key) == 0) {
+		song->albumExplorerUrl = strdup (valueStr);
 	}
 }
 
@@ -727,12 +731,12 @@ PianoReturn_t PianoXmlParseGenreExplorer (PianoHandle_t *ph, char *xml) {
 	ezxml_t xmlDoc, catNode;
 	PianoReturn_t ret;
 
-    if ((ret = PianoXmlInitDoc (xml, &xmlDoc)) != PIANO_RET_OK) {
-        return ret;
-    }
+	if ((ret = PianoXmlInitDoc (xml, &xmlDoc)) != PIANO_RET_OK) {
+		return ret;
+	}
 
 	/* get all <member> nodes */
-    for (catNode = ezxml_child (xmlDoc, "category"); catNode;
+	for (catNode = ezxml_child (xmlDoc, "category"); catNode;
 			catNode = catNode->next) {
 		PianoGenreCategory_t *tmpGenreCategory;
 		ezxml_t genreNode;

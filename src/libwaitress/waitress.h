@@ -70,6 +70,7 @@ bool WaitressSetProxy (WaitressHandle_t *, const char *);
 char *WaitressUrlEncode (const char *);
 bool WaitressSetUrl (WaitressHandle_t *, const char *);
 WaitressReturn_t WaitressFetchBuf (WaitressHandle_t *, char **);
+WaitressReturn_t WaitressFetchBufEx (WaitressHandle_t *, char **, size_t *);
 WaitressReturn_t WaitressFetchCall (WaitressHandle_t *);
 const char *WaitressErrorToStr (WaitressReturn_t);
 

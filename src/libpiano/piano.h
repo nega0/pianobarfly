@@ -80,6 +80,8 @@ typedef struct PianoSong {
 	int testStrategy;
 	unsigned int songType;
 	struct PianoSong *next;
+	char* albumDetailURL;
+	char* albumExplorerUrl;
 } PianoSong_t;
 
 /* currently only used for search results */

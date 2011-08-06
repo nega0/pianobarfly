@@ -1,7 +1,7 @@
-pianobar
+pianobarfly
 ========
 
-pianobar is a console client for the personalized web radio pandora
+pianobarfly is a console client for the personalized web radio pandora
 (http://www.pandora.com).
 
 - play and manage (create, add more music, delete, rename, ...) your stations
@@ -10,7 +10,4 @@ pianobar is a console client for the personalized web radio pandora
 - configure keybindings
 - last.fm scrobbling support (external application)
 - proxy support for listeners outside the USA
-
-The sourcecode can be downloaded at http://github.com/PromyLOPh/pianobar/ or
-http://6xq.net/projects/pianobar/
-
+- auto-rips streams to audio files

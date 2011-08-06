@@ -42,6 +42,7 @@ THE SOFTWARE.
 #include <piano.h>
 #include <waitress.h>
 
+#include "fly.h"
 #include "settings.h"
 
 #define BAR_PLAYER_MS_TO_S_FACTOR 1000
@@ -101,6 +102,9 @@ struct audioPlayer {
 
 	char doQuit;
 	pthread_mutex_t pauseMutex;
+
+	/* File stream for writing out the audio file. */
+	BarFly_t fly;
 
 	const BarSettings_t *settings;
 };

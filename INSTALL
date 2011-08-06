@@ -9,6 +9,7 @@ libao				http://www.xiph.org/ao/
 libfaad2			http://www.audiocoding.com/downloads.html
 AND/OR libmad		http://www.underbit.com/products/mad/
 pthreads
+libid3tag			http://www.underbit.com/products/mad/
 UTF-8 console/locale!
 
 Building
@@ -16,7 +17,7 @@ Building
 
 If you have all of the dependencies listed above just type
 
-	gmake clean && gmake
+	make clean && make
 
 NOTE: The above won't work on Mac OS X (Snow Leopard) since c99 targets i386
 and cc (gcc4.2) targets x86_64. If you've built supporting libraries
@@ -27,24 +28,28 @@ this issue by overriding CFLAGS[1]
 
 You can run the client directly from the source directory now
  
-	./pianobar
+	./pianobarfly
 
 Or install it by issuing
 	
-	gmake install
+	make install
 
 In case you don't want to install libmad OR libfaad you probably want to
 disable one of them:
 
-	gmake clean && gmake DISABLE_FAAD=1
+	make clean && make DISABLE_FAAD=1
 
 or
 
-	gmake clean && gmake DISABLE_MAD=1
+	make clean && make DISABLE_MAD=1
+
+You can also disable libid3tag:
+
+	make clean && make DISABLE_ID3TAG=1
 
 libpiano can be built and installed by running
 	
-	gmake clean && gmake libpiano && gmake install-libpiano
+	make clean && make libpiano && make install-libpiano
 
 
 [1] https://github.com/PromyLOPh/pianobar/issues/98

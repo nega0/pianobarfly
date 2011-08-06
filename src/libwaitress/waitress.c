@@ -376,6 +376,16 @@ static WaitressCbReturn_t WaitressFetchBufCb (void *recvData, size_t recvDataSiz
  *	@param result buffer, malloced (don't forget to free it yourself)
  */
 WaitressReturn_t WaitressFetchBuf (WaitressHandle_t *waith, char **buf) {
+	return WaitressFetchBufEx (waith, buf, NULL);
+}
+
+/* Fetch buffer. Beware! This overwrites your waith-data pointer
+ * @param waitress handle
+ * @param buf malloced (don't forget to free it yourself)
+ * @param size Size of the buffer
+ */
+WaitressReturn_t WaitressFetchBufEx (WaitressHandle_t *waith, char **buf,
+		size_t *size) {
 	WaitressFetchBufCbBuffer_t buffer;
 	WaitressReturn_t wRet;
 
@@ -386,6 +396,11 @@ WaitressReturn_t WaitressFetchBuf (WaitressHandle_t *waith, char **buf) {
 
 	wRet = WaitressFetchCall (waith);
 	*buf = buffer.buf;
+
+	if (size != NULL) {
+		*size = buffer.pos;
+	}
+
 	return wRet;
 }
 
@@ -592,7 +607,7 @@ WaitressReturn_t WaitressFetchCall (WaitressHandle_t *waith) {
 	WRITE_RET (writeBuf, strlen (writeBuf));
 
 	snprintf (writeBuf, sizeof (writeBuf),
-			"Host: %s\r\nUser-Agent: " PACKAGE "\r\n", waith->url.host);
+			"Host: %s\r\nUser-Agent: pianobar\r\n", waith->url.host);
 	WRITE_RET (writeBuf, strlen (writeBuf));
 
 	if (waith->method == WAITRESS_METHOD_POST && waith->postData != NULL) {

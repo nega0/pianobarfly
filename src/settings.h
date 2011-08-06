@@ -82,6 +82,10 @@ typedef struct {
 	int volume;
 	BarStationSorting_t sortOrder;
 	PianoAudioFormat_t audioFormat;
+	char *audioFileDir;
+    char *audioFileName;
+	int useSpaces;
+	int embedCover;
 	char *username;
 	char *password;
 	char *controlProxy; /* non-american listeners need this */

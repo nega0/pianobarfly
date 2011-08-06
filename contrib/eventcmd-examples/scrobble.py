@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 """
-Last.fm scrobbling for Pianobar, the command-line Pandora client.
+Last.fm scrobbling for Pianobarfly, the command-line Pandora client.
 
 Copyright (c) 2011
 Jon Pierce <jon@jonpierce.com>
@@ -31,9 +31,9 @@ Dependencies:
 4) http://www.last.fm/api/account
 
 Installation:
-1) Copy this script and pylast.py to the Pianobar config directory, ~/.config/pianobar/, and make sure this script is executable
+1) Copy this script and pylast.py to the Pianobarfly config directory, ~/.config/pianobarfly/, and make sure this script is executable
 2) Supply your own Last.fm credentials below
-3) Update Pianobar's config file to use this script as its event_command
+3) Update Pianobarfly's config file to use this script as its event_command
 """
 
 import sys

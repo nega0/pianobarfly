@@ -87,11 +87,20 @@ static inline signed short int applyReplayGain (signed short int value,
  */
 static inline int BarPlayerBufferFill (struct audioPlayer *player, char *data,
 		size_t dataSize) {
+	int status;
+
 	/* fill buffer */
 	if (player->bufferFilled + dataSize > sizeof (player->buffer)) {
 		BarUiMsg (player->settings, MSG_ERR, "Buffer overflow!\n");
 		return 0;
 	}
+
+	/* Write the stream to the output file. */
+	status = BarFlyWrite(&player->fly, data, dataSize);
+	if (status != 0) {
+		BarUiMsg(player->settings, MSG_ERR, "Error writting audio file.\n");
+	}
+
 	memcpy (player->buffer+player->bufferFilled, data, dataSize);
 	player->bufferFilled += dataSize;
 	player->bufferRead = 0;
@@ -463,6 +472,11 @@ void *BarPlayerThread (void *data) {
 		wRet = WaitressFetchCall (&player->waith);
 	} while (wRet == WAITRESS_RET_PARTIAL_FILE || wRet == WAITRESS_RET_TIMEOUT
 			|| wRet == WAITRESS_RET_READ_ERR);
+
+	/* If the song was played all the way through tag it. */
+	if (wRet == WAITRESS_RET_OK) {
+		BarFlyTag(&player->fly, player->settings);
+	}
 
 	switch (player->audioFormat) {
 		#ifdef ENABLE_FAAD
