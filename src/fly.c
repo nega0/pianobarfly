@@ -69,7 +69,7 @@ static WaitressHandle_t fly_waith;
  * the returned buffer.  This size does not include the '\0' character at the
  * end of the buffer.  This argument may be NULL if the size of the buffer
  * does not matter as is often the case with string buffers.
- * #param settings Pointer to the application settings structure.
+ * @param settings Pointer to the application settings structure.
  * @return Upon success 0 is returned otherwise -1 is returned.
  */
 static int _BarFlyFetchURL(char const* url, uint8_t** buffer, size_t* size,
