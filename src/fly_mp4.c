@@ -48,7 +48,8 @@
 
 #ifdef ENABLE_FAAD
 
-#define _GNU_SOURCE
+#define _XOPEN_SOURCE 700
+#define _BSD_SOURCE
 
 #include <assert.h>
 #include <errno.h>

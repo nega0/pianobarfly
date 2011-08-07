@@ -25,7 +25,7 @@
  * IN THE SOFTWARE.
  */
 
-#define _GNU_SOURCE
+#define _XOPEN_SOURCE 700
 
 #include <assert.h>
 #include <errno.h>
@@ -45,6 +45,7 @@
 
 #include "fly.h"
 #include "fly_id3.h"
+#include "fly_misc.h"
 #include "fly_mp4.h"
 #include "settings.h"
 #include "ui.h"
@@ -549,7 +550,7 @@ static int _BarFlyFileOpen(FILE** file, char const* path,
 	 */
 	ptr = strchr(path, '/');
 	while (ptr != NULL) {
-		status = asprintf(&dir_path, "%.*s", (int)(ptr - path), path);
+		status = BarFlyasprintf(&dir_path, "%.*s", (int)(ptr - path), path);
 		if (status == -1) {
 			BarUiMsg(settings, MSG_ERR, "Error copying the directory path of "
 					"the audio file (%d:%s).\n", errno, strerror(errno));
@@ -828,7 +829,7 @@ static int _BarFlyParseTrackDisc(char const* title, char const* album_xml,
 	}
 	regex_title[index2] = '\0';
 
-	status = asprintf(&regex_string,
+	status = BarFlyasprintf(&regex_string,
 			"songTitle *= *\"%s\"[^>]+"
 			"discNum *= *\"([0-9]+)\"[^>]+"
 			"trackNum *= *\"([0-9]+)\"", regex_title);

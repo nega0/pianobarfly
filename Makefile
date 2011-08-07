@@ -27,6 +27,7 @@ PIANOBAR_SRC=\
 		${PIANOBAR_DIR}/ui_dispatch.c \
 		${PIANOBAR_DIR}/fly.c \
 		${PIANOBAR_DIR}/fly_id3.c \
+		${PIANOBAR_DIR}/fly_misc.c \
 		${PIANOBAR_DIR}/fly_mp4.c
 PIANOBAR_HDR=\
 		${PIANOBAR_DIR}/player.h \
@@ -39,6 +40,7 @@ PIANOBAR_HDR=\
 		${PIANOBAR_DIR}/config.h \
 		${PIANOBAR_DIR}/fly.h \
 		${PIANOBAR_DIR}/fly_id3.h \
+		${PIANOBAR_DIR}/fly_misc.h \
 		${PIANOBAR_DIR}/fly_mp4.h
 PIANOBAR_OBJ=${PIANOBAR_SRC:.c=.o}
 
