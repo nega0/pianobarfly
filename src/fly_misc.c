@@ -68,6 +68,8 @@ int BarFlyvasprintf(char** strp, char const* fmt, va_list ap)
 		goto error;
 	}
 
+	*strp = str;
+
 	goto end;
 
 error:
