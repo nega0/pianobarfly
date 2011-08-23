@@ -77,40 +77,34 @@ LIBEZXML_OBJ=${LIBEZXML_SRC:.c=.o}
 LIBEZXML_RELOBJ=${LIBEZXML_SRC:.c=.lo}
 LIBEZXML_INCLUDE=${LIBEZXML_DIR}
 
-ifeq (${DISABLE_FAAD}, 1)
-	LIBFAAD_CFLAGS=
-	LIBFAAD_LDFLAGS=
-else
+ifneq (${DISABLE_FAAD}, 1)
 	LIBFAAD_CFLAGS=-DENABLE_FAAD
 	LIBFAAD_LDFLAGS=-lfaad
 endif
 
-ifeq (${DISABLE_MAD}, 1)
-	LIBMAD_CFLAGS=
-	LIBMAD_LDFLAGS=
-else
-	LIBMAD_CFLAGS=-DENABLE_MAD
-	LIBMAD_LDFLAGS=-lmad
+ifneq (${DISABLE_MAD}, 1)
+	LIBMAD_CFLAGS=${shell pkg-config --cflags mad} -DENABLE_MAD
+	LIBMAD_LDFLAGS=${shell pkg-config --libs mad}
 endif
 
-ifeq (${DISABLE_ID3TAG}, 1)
-	LIBID3TAG_CFLAGS=
-	LIBID3TAG_LDFLAGS=
-else
-	LIBID3TAG_CFLAGS=-DENABLE_ID3TAG
-	LIBID3TAG_LDFLAGS=-lid3tag
+ifneq (${DISABLE_ID3TAG}, 1)
+	LIBID3TAG_CFLAGS=${shell pkg-config --cflags id3tag} -DENABLE_ID3TAG
+	LIBID3TAG_LDFLAGS=${shell pkg-config --libs id3tag}
 endif
+
+LIBAO_CFLAGS=${shell pkg-config --cflags ao}
+LIBAO_LDFLAGS=${shell pkg-config --libs ao}
 
 # build pianobarfly
 ifeq (${DYNLINK},1)
 pianobarfly: ${PIANOBAR_OBJ} ${PIANOBAR_HDR} libpiano.so.0
-	${CC} -o $@ ${PIANOBAR_OBJ} ${LDFLAGS} -lao -lpthread -lm -L. -lpiano \
-			${LIBFAAD_LDFLAGS} ${LIBMAD_LDFLAGS}
+	${CC} -o $@ ${PIANOBAR_OBJ} ${LDFLAGS} ${LIBAO_LDFLAGS} -lpthread -L. \
+			-lpiano ${LIBFAAD_LDFLAGS} ${LIBMAD_LDFLAGS}
 else
 pianobarfly: ${PIANOBAR_OBJ} ${PIANOBAR_HDR} ${LIBPIANO_OBJ} ${LIBWAITRESS_OBJ} \
 		${LIBWAITRESS_HDR} ${LIBEZXML_OBJ} ${LIBEZXML_HDR}
 	${CC} ${CFLAGS} ${LDFLAGS} ${PIANOBAR_OBJ} ${LIBPIANO_OBJ} \
-			${LIBWAITRESS_OBJ} ${LIBEZXML_OBJ} -lao -lpthread -lm \
+			${LIBWAITRESS_OBJ} ${LIBEZXML_OBJ} ${LIBAO_LDFLAGS} -lpthread \
 			${LIBFAAD_LDFLAGS} ${LIBMAD_LDFLAGS} ${LIBID3TAG_LDFLAGS} -o $@
 endif
 
@@ -128,7 +122,7 @@ libpiano.so.0: ${LIBPIANO_RELOBJ} ${LIBPIANO_HDR} ${LIBWAITRESS_RELOBJ} \
 %.o: %.c
 	${CC} ${CFLAGS} -I ${LIBPIANO_INCLUDE} -I ${LIBWAITRESS_INCLUDE} \
 			-I ${LIBEZXML_INCLUDE} ${LIBFAAD_CFLAGS} \
-			${LIBMAD_CFLAGS} ${LIBID3TAG_CFLAGS} -c -o $@ $<
+			${LIBMAD_CFLAGS} ${LIBID3TAG_CFLAGS} ${LIBAO_CFLAGS} -c -o $@ $<
 
 # create position independent code (for shared libraries)
 %.lo: %.c

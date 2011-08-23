@@ -23,7 +23,6 @@ THE SOFTWARE.
 
 /* application settings */
 
-#define _POSIX_C_SOURCE 1 /* PATH_MAX */
 #define _BSD_SOURCE /* strdup() */
 
 #include <stdbool.h>
@@ -32,6 +31,7 @@ THE SOFTWARE.
 #include <stdio.h>
 #include <limits.h>
 #include <assert.h>
+#include <sys/param.h>
 
 #include "settings.h"
 #include "config.h"
@@ -106,7 +106,7 @@ void BarSettingsDestroy (BarSettings_t *settings) {
  *	@return nothing yet
  */
 void BarSettingsRead (BarSettings_t *settings) {
-	char configfile[PATH_MAX], key[256], val[256];
+	char configfile[MAXPATHLEN], key[256], val[256];
 	FILE *configfd = NULL;
 	static const char *formatMsgPrefix = "format_msg_";
 

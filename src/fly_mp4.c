@@ -48,7 +48,6 @@
 
 #ifdef ENABLE_FAAD
 
-#define _XOPEN_SOURCE 700
 #define _BSD_SOURCE
 
 #include <assert.h>
