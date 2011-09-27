@@ -34,7 +34,6 @@ THE SOFTWARE.
 
 typedef struct PianoUserInfo {
 	char *webAuthToken;
-	char *listenerId;
 	char *authToken;
 } PianoUserInfo_t;
 
@@ -81,7 +80,7 @@ typedef struct PianoSong {
 	unsigned int songType;
 	struct PianoSong *next;
 	char* albumDetailURL;
-	char* albumExplorerUrl;
+	char* albumExplorerUrl;	
 } PianoSong_t;
 
 /* currently only used for search results */
@@ -219,6 +218,7 @@ typedef struct {
 } PianoRequestDataExplain_t;
 
 typedef struct {
+	PianoStation_t *station;
 	char *musicId;
 	unsigned short max;
 	PianoSearchResult_t searchResult;
