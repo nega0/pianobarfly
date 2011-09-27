@@ -5,3 +5,6 @@
 pianobarfly
 libpiano.a
 libpiano.so*
+mp3
+mp3/**
+.DS_Store

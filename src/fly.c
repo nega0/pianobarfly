@@ -676,7 +676,8 @@ static size_t _BarFlyNameTranslate(char* dest, char const* src, size_t n,
 		    src[i] == ':' ||
 		    src[i] == ';' ||
 		    src[i] == '*' ||
-		    src[i] == '`') {
+		    src[i] == '`' ||
+			src[i] == '\'') {
 			dest[i2] = '-';
 			i2++;
 		} else if (src[i] == '<') {
