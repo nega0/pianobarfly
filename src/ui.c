@@ -794,7 +794,7 @@ void BarUiStartEventCmd (const BarSettings_t *settings, const char *type,
 	} else {
 		/* parent */
 		int status, printfret;
-		char pipeBuf[1024];
+		char pipeBuf[2048];
 		PianoStation_t *songStation = NULL;
 
 		close (pipeFd[0]);
@@ -802,6 +802,8 @@ void BarUiStartEventCmd (const BarSettings_t *settings, const char *type,
 		if (curSong != NULL && stations != NULL && curStation->isQuickMix) {
 			songStation = PianoFindStationById (stations, curSong->stationId);
 		}
+
+		char * file_path = player->fly.audio_file_path;
 
 		printfret = snprintf (pipeBuf, sizeof (pipeBuf),
 				"artist=%s\n"
@@ -817,7 +819,8 @@ void BarUiStartEventCmd (const BarSettings_t *settings, const char *type,
 				"songDuration=%lu\n"
 				"songPlayed=%lu\n"
 				"rating=%i\n"
-				"detailUrl=%s\n",
+				"detailUrl=%s\n"
+				"filePath=%s\n",
 				curSong == NULL ? "" : curSong->artist,
 				curSong == NULL ? "" : curSong->title,
 				curSong == NULL ? "" : curSong->album,
@@ -831,7 +834,8 @@ void BarUiStartEventCmd (const BarSettings_t *settings, const char *type,
 				player->songDuration,
 				player->songPlayed,
 				curSong == NULL ? PIANO_RATE_NONE : curSong->rating,
-				curSong == NULL ? "" : curSong->detailUrl
+				curSong == NULL ? "" : curSong->detailUrl,
+				file_path == NULL ? "" : file_path
 				);
 		assert (printfret < sizeof (pipeBuf));
 

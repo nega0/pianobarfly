@@ -1914,6 +1914,7 @@ int BarFlyMp4TagWrite(BarFlyMp4Tag_t* tag, BarSettings_t const* settings)
 	size_t read_count;
 	size_t write_count;
 	char tmp_file_path[TMP_FILE_PATH_LENGTH];
+	char tmp_file_dir[TMP_FILE_PATH_LENGTH];
 	size_t atom_size;
 	BarFlyMp4Atom_t* atom;
 
@@ -1926,9 +1927,10 @@ int BarFlyMp4TagWrite(BarFlyMp4Tag_t* tag, BarSettings_t const* settings)
 	if (strchr(tag->file_path, '/') == NULL) {
 		strcpy(tmp_file_path, BAR_FLY_TMP_MP4_FILE_NAME);
 	} else {
-		strncpy(tmp_file_path, tag->file_path, TMP_FILE_PATH_LENGTH);
+		strncpy(tmp_file_dir, dirname(tag->file_path), TMP_FILE_PATH_LENGTH);
+		strncpy(tmp_file_path, tmp_file_dir, strlen(tmp_file_dir));
 		tmp_file_path[TMP_FILE_PATH_LENGTH - 1] = '\0';
-		dirname(tmp_file_path);
+//		dirname(tmp_file_path);
 		strcat(tmp_file_path, "/");
 		strcat(tmp_file_path, BAR_FLY_TMP_MP4_FILE_NAME);
 	}

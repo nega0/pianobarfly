@@ -250,6 +250,18 @@ static int _BarFlyTagMp4Write(BarFly_t const* fly, uint8_t const* cover_art,
  */
 static int _BarFlyTagWrite(BarFly_t const* fly, BarSettings_t const* settings);
 
+char *strndup(const char *s, size_t n);
+
+char *strndup(const char *s, size_t n) {
+    char *fnval;
+
+    if ((fnval = (char *)malloc (n + 1)) == NULL)
+	return NULL;
+    strncpy(fnval, s, n);
+    fnval[n] = '\0';
+    return fnval;
+}
+
 
 static int _BarFlyFetchURL(char const* url, uint8_t** buffer, size_t* size,
 		BarSettings_t const* settings)
@@ -665,7 +677,8 @@ static size_t _BarFlyNameTranslate(char* dest, char const* src, size_t n,
 		    src[i] == ':' ||
 		    src[i] == ';' ||
 		    src[i] == '*' ||
-		    src[i] == '`') {
+		    src[i] == '`' ||
+			src[i] == '\'') {
 			dest[i2] = '-';
 			i2++;
 		} else if (src[i] == '<') {

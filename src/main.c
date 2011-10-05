@@ -252,6 +252,8 @@ static void BarMainPlayerCleanup (BarApp_t *app, pthread_t *playerThread) {
 	if (threadRet != (void *) PLAYER_RET_OK) {
 		app->curStation = NULL;
 	}
+	
+//	char* file_path = strcpy(fly->audio_file_path);
 
 	/* Close the output file. */
 	BarFlyClose (&app->player.fly, &app->settings);
