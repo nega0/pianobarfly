@@ -52,6 +52,7 @@
 #audio_format = aacplus
 #autostart_station = 123456
 #event_command = /home/user/.config/pianobarfly/eventcmd
+#fifo = /tmp/pianobar
 #sort = quickmix_10_name_az
 #love_icon = [+]
 #ban_icon = [-]
