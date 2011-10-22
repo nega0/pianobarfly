@@ -43,6 +43,7 @@ typedef struct PianoStation {
 	char useQuickMix; /* station will be included in quickmix */
 	char *name;
 	char *id;
+	char *seedId;
 	struct PianoStation *next;
 } PianoStation_t;
 
@@ -121,6 +122,7 @@ typedef struct PianoSearchResult {
 typedef struct {
 	PianoSong_t *songSeeds;
 	PianoArtist_t *artistSeeds;
+	PianoStation_t *stationSeeds;
 	PianoSong_t *feedback;
 } PianoStationInfo_t;
 
@@ -232,6 +234,7 @@ typedef struct {
 typedef struct {
 	PianoSong_t *song;
 	PianoArtist_t *artist;
+	PianoStation_t *station;
 } PianoRequestDataDeleteSeed_t;
 
 typedef enum {
