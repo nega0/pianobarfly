@@ -154,7 +154,7 @@ endif
 	install -d ${DESTDIR}/${BINDIR}/
 	install -m755 pianobarfly ${DESTDIR}/${BINDIR}/
 	install -d ${DESTDIR}/${MANDIR}/man1/
-	install -m644 contrib/pianobar.1 ${DESTDIR}/${MANDIR}/man1/
+	install -m644 contrib/pianobarfly.1 ${DESTDIR}/${MANDIR}/man1/
 
 install-libpiano:
 	install -d ${DESTDIR}/${LIBDIR}/
