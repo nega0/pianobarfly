@@ -273,8 +273,7 @@ static int _BarFlyFetchURL(char const* url, uint8_t** buffer, size_t* size,
 		goto error;
 	}
 
-	status_waith = WaitressFetchBufEx(&fly_waith, (char**)&tmp_buffer,
-		&tmp_size);
+	status_waith = WaitressFetchBuf(&fly_waith, (char**)&tmp_buffer);
 	if ((status_waith != WAITRESS_RET_OK) || (tmp_buffer == NULL)) {
 		BarUiMsg(settings, MSG_DEBUG, "Failed to fetch the URL contents "
 				"(url = %s, waitress status = %d).\n", url, status_waith);

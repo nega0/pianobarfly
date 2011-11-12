@@ -94,7 +94,8 @@ void BarSettingsDestroy (BarSettings_t *settings) {
 	free (settings->audioFileName);
 	free (settings->npSongFormat);
 	free (settings->npStationFormat);
-    free (settings->fifo);
+	free (settings->listSongFormat);
+	free (settings->fifo);
 	for (size_t i = 0; i < MSG_COUNT; i++) {
 		free (settings->msgFormat[i].prefix);
 		free (settings->msgFormat[i].postfix);
@@ -130,8 +131,12 @@ void BarSettingsRead (BarSettings_t *settings) {
 	settings->atIcon = strdup (" @ ");
 	settings->npSongFormat = strdup ("\"%t\" by \"%a\" on \"%l\"%r%@%s");
 	settings->npStationFormat = strdup ("Station \"%n\" (%i)");
-    settings->fifo = malloc (PATH_MAX * sizeof (*settings->fifo));
-    BarGetXdgConfigDir (PACKAGE "/ctl", settings->fifo, PATH_MAX);
+	settings->listSongFormat = strdup ("%i) %a - %t%r");
+	settings->fifo = malloc (PATH_MAX * sizeof (*settings->fifo));
+	BarGetXdgConfigDir (PACKAGE "/ctl", settings->fifo, PATH_MAX);
+	memcpy (settings->tlsFingerprint, "\xD9\x98\x0B\xA2\xCC\x0F\x97\xBB"
+			"\x03\x82\x2C\x62\x11\xEA\xEA\x4A\x06\xEE\xF4\x27",
+			sizeof (settings->tlsFingerprint));
 
 	settings->msgFormat[MSG_NONE].prefix = NULL;
 	settings->msgFormat[MSG_NONE].postfix = NULL;
@@ -255,9 +260,19 @@ void BarSettingsRead (BarSettings_t *settings) {
 			} else if (streq ("format_nowplaying_station", key)) {
 				free (settings->npStationFormat);
 				settings->npStationFormat = strdup (val);
-            } else if (streq ("fifo", key)) {
-                free (settings->fifo);
-                settings->fifo = strdup (val);
+			} else if (streq ("fifo", key)) {
+				free (settings->fifo);
+				settings->fifo = strdup (val);
+			} else if (streq ("tls_fingerprint", key)) {
+				/* expects 40 byte hex-encoded sha1 */
+				if (strlen (val) == 40) {
+					for (size_t i = 0; i < 20; i++) {
+						char hex[3];
+						memcpy (hex, &val[i*2], 2);
+						hex[2] = '\0';
+						settings->tlsFingerprint[i] = strtol (hex, NULL, 16);
+					}
+				}
 			} else if (strncmp (formatMsgPrefix, key,
 					strlen (formatMsgPrefix)) == 0) {
 				static const char *mapping[] = {"none", "info", "nowplaying",

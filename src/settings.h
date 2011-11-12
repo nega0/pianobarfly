@@ -83,7 +83,7 @@ typedef struct {
 	BarStationSorting_t sortOrder;
 	PianoAudioFormat_t audioFormat;
 	char *audioFileDir;
-    char *audioFileName;
+	char *audioFileName;
 	int useSpaces;
 	int embedCover;
 	char *username;
@@ -98,7 +98,9 @@ typedef struct {
 	char *atIcon;
 	char *npSongFormat;
 	char *npStationFormat;
-    char *fifo;
+	char *listSongFormat;
+	char *fifo;
+	char tlsFingerprint[20];
 	BarMsgFormatStr_t msgFormat[MSG_COUNT];
 } BarSettings_t;
 

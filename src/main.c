@@ -376,11 +376,8 @@ int main (int argc, char **argv) {
 
 	/* init some things */
 	ao_initialize ();
+	gnutls_global_init ();
 	PianoInit (&app.ph);
-
-	WaitressInit (&app.waith);
-	app.waith.url.host = strdup (PIANO_RPC_HOST);
-	app.waith.url.port = strdup (PIANO_RPC_PORT);
 
 	BarSettingsInit (&app.settings);
 	BarSettingsRead (&app.settings);
@@ -394,6 +391,11 @@ int main (int argc, char **argv) {
 				"Press %c for a list of commands.\n",
 				app.settings.keys[BAR_KS_HELP]);
 	}
+
+	WaitressInit (&app.waith);
+	app.waith.url.host = strdup (PIANO_RPC_HOST);
+	app.waith.url.tls = true;
+	app.waith.tlsFingerprint = app.settings.tlsFingerprint;
 
 	/* init fds */
 	FD_ZERO(&app.input.set);
@@ -410,11 +412,11 @@ int main (int argc, char **argv) {
 
 	/* open fifo read/write so it won't EOF if nobody writes to it */
 	assert (sizeof (app.input.fds) / sizeof (*app.input.fds) >= 2);
-    app.input.fds[1] = open (app.settings.fifo, O_RDWR);
+	app.input.fds[1] = open (app.settings.fifo, O_RDWR);
 	if (app.input.fds[1] != -1) {
 		FD_SET(app.input.fds[1], &app.input.set);
 		BarUiMsg (&app.settings, MSG_INFO, "Control fifo at %s opened\n",
-            app.settings.fifo);
+				app.settings.fifo);
 	}
 	app.input.maxfd = app.input.fds[0] > app.input.fds[1] ? app.input.fds[0] :
 			app.input.fds[1];
@@ -434,7 +436,9 @@ int main (int argc, char **argv) {
 	PianoDestroy (&app.ph);
 	PianoDestroyPlaylist (app.songHistory);
 	PianoDestroyPlaylist (app.playlist);
+	WaitressFree (&app.waith);
 	ao_shutdown();
+	gnutls_global_deinit ();
 	BarSettingsDestroy (&app.settings);
 
 	/* restore terminal attributes, zsh doesn't need this, bash does... */

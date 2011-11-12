@@ -25,16 +25,32 @@ THE SOFTWARE.
 #define _WAITRESS_H
 
 #include <stdlib.h>
+#include <unistd.h>
 #include <stdbool.h>
+#include <gnutls/gnutls.h>
 
-#define WAITRESS_RECV_BUFFER 10*1024
+#define WAITRESS_BUFFER_SIZE 10*1024
 
-typedef enum {WAITRESS_METHOD_GET = 0, WAITRESS_METHOD_POST} WaitressMethod_t;
+typedef enum {
+	WAITRESS_METHOD_GET = 0,
+	WAITRESS_METHOD_POST,
+} WaitressMethod_t;
 
-typedef enum {WAITRESS_CB_RET_ERR, WAITRESS_CB_RET_OK} WaitressCbReturn_t;
+typedef enum {
+	WAITRESS_CB_RET_ERR,
+	WAITRESS_CB_RET_OK,
+} WaitressCbReturn_t;
+
+typedef enum {
+	WAITRESS_HANDLER_CONTINUE,
+	WAITRESS_HANDLER_DONE,
+	WAITRESS_HANDLER_ERR,
+	WAITRESS_HANDLER_ABORTED,
+} WaitressHandlerReturn_t;
 
 typedef struct {
 	char *url; /* splitted url, unusable */
+	bool tls;
 	const char *user;
 	const char *password;
 	const char *host;
@@ -42,27 +58,57 @@ typedef struct {
 	const char *path; /* without leading '/' */
 } WaitressUrl_t;
 
+typedef enum {
+	WAITRESS_RET_ERR = 0,
+	WAITRESS_RET_OK,
+	WAITRESS_RET_STATUS_UNKNOWN,
+	WAITRESS_RET_NOTFOUND,
+	WAITRESS_RET_FORBIDDEN,
+	WAITRESS_RET_CONNECT_REFUSED,
+	WAITRESS_RET_SOCK_ERR,
+	WAITRESS_RET_GETADDR_ERR,
+	WAITRESS_RET_CB_ABORT,
+	WAITRESS_RET_PARTIAL_FILE,
+	WAITRESS_RET_TIMEOUT,
+	WAITRESS_RET_READ_ERR,
+	WAITRESS_RET_CONNECTION_CLOSED,
+	WAITRESS_RET_DECODING_ERR,
+	WAITRESS_RET_TLS_DISABLED,
+	WAITRESS_RET_TLS_WRITE_ERR,
+	WAITRESS_RET_TLS_READ_ERR,
+	WAITRESS_RET_TLS_HANDSHAKE_ERR,
+	WAITRESS_RET_TLS_TRUSTFILE_ERR,
+} WaitressReturn_t;
+
+/*	reusable handle
+ */
 typedef struct {
 	WaitressUrl_t url;
 	WaitressMethod_t method;
 	const char *extraHeaders;
 	const char *postData;
-	size_t contentLength;
-	size_t contentReceived;
 	WaitressUrl_t proxy;
 	/* extra data handed over to callback function */
 	void *data;
 	WaitressCbReturn_t (*callback) (void *, size_t, void *);
-	int socktimeout;
-} WaitressHandle_t;
+	int timeout;
+	const char *tlsFingerprint;
+	gnutls_certificate_credentials_t tlsCred;
 
-typedef enum {WAITRESS_RET_ERR = 0, WAITRESS_RET_OK, WAITRESS_RET_STATUS_UNKNOWN,
-		WAITRESS_RET_NOTFOUND, WAITRESS_RET_FORBIDDEN, WAITRESS_RET_CONNECT_REFUSED,
-		WAITRESS_RET_SOCK_ERR, WAITRESS_RET_GETADDR_ERR,
-		WAITRESS_RET_CB_ABORT, WAITRESS_RET_HDR_OVERFLOW,
-		WAITRESS_RET_PARTIAL_FILE, WAITRESS_RET_TIMEOUT, WAITRESS_RET_READ_ERR,
-		WAITRESS_RET_CONNECTION_CLOSED
-} WaitressReturn_t;
+	/* per-request data */
+	struct {
+		size_t contentLength, contentReceived, chunkSize;
+		int sockfd;
+		char *buf;
+		gnutls_session_t tlsSession;
+		/* first argument is WaitressHandle_t, but that's not defined yet */
+		WaitressHandlerReturn_t (*dataHandler) (void *, char *, const size_t);
+		WaitressReturn_t (*read) (void *, char *, const size_t, ssize_t *);
+		WaitressReturn_t (*write) (void *, const char *, const size_t);
+		/* temporary return value storage */
+		WaitressReturn_t readWriteRet;
+	} request;
+} WaitressHandle_t;
 
 void WaitressInit (WaitressHandle_t *);
 void WaitressFree (WaitressHandle_t *);
@@ -70,7 +116,6 @@ bool WaitressSetProxy (WaitressHandle_t *, const char *);
 char *WaitressUrlEncode (const char *);
 bool WaitressSetUrl (WaitressHandle_t *, const char *);
 WaitressReturn_t WaitressFetchBuf (WaitressHandle_t *, char **);
-WaitressReturn_t WaitressFetchBufEx (WaitressHandle_t *, char **, size_t *);
 WaitressReturn_t WaitressFetchCall (WaitressHandle_t *);
 const char *WaitressErrorToStr (WaitressReturn_t);
 
