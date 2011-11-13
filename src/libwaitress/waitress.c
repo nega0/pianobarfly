@@ -391,6 +391,17 @@ static WaitressCbReturn_t WaitressFetchBufCb (void *recvData, size_t recvDataSiz
  *			yourself)
  */
 WaitressReturn_t WaitressFetchBuf (WaitressHandle_t *waith, char **retBuffer) {
+	return WaitressFetchBufEx (waith, retBuffer, NULL);
+}
+
+/*	Fetch string. Beware! This overwrites your waith->data pointer
+ *	@param waitress handle
+ *	@param \0-terminated result buffer, malloced (don't forget to free it
+ *			yourself)
+ *  @param size Size of the buffer
+ */
+WaitressReturn_t WaitressFetchBufEx (WaitressHandle_t *waith, char **retBuffer,
+		size_t *size) {
 	WaitressFetchBufCbBuffer_t buffer;
 	WaitressReturn_t wRet;
 
@@ -404,6 +415,11 @@ WaitressReturn_t WaitressFetchBuf (WaitressHandle_t *waith, char **retBuffer) {
 
 	wRet = WaitressFetchCall (waith);
 	*retBuffer = buffer.data;
+
+	if (size != NULL) {
+		*size = buffer.pos;
+	}
+
 	return wRet;
 }
 
