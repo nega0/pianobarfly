@@ -51,6 +51,27 @@
 #include "ui.h"
 
 /**
+ * Apple doesn't have a strndup(), so we roll our own
+ */
+#ifdef __APPLE__
+char * strndup(const char* s, size_t n) {
+  size_t l = strlen(s);
+  char *r = NULL;
+
+  if (l < n)
+    return strdup(s);
+
+  r = (char *) malloc(n+1);
+  if (r == NULL)
+    return NULL;
+
+  strncpy(r, s, n);
+  r[n] ='\0';
+  return r;
+}
+#endif
+
+/**
  * Barfly Waitress handle used to fetch the album cover and year.
  */
 static WaitressHandle_t fly_waith;
