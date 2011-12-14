@@ -304,7 +304,7 @@ int BarFlyID3WriteFile(char const* file_path, struct id3_tag const* tag,
 	} else {
 		strncpy(tmp_file_path, file_path, TMP_FILE_PATH_LENGTH);
 		tmp_file_path[TMP_FILE_PATH_LENGTH - 1] = '\0';
-		dirname(tmp_file_path);
+		strcpy(tmp_file_path, dirname(tmp_file_path));
 		strcat(tmp_file_path, "/");
 		strcat(tmp_file_path, BAR_FLY_TMP_MP3_FILE_NAME);
 	}
