@@ -1928,7 +1928,7 @@ int BarFlyMp4TagWrite(BarFlyMp4Tag_t* tag, BarSettings_t const* settings)
 	} else {
 		strncpy(tmp_file_path, tag->file_path, TMP_FILE_PATH_LENGTH);
 		tmp_file_path[TMP_FILE_PATH_LENGTH - 1] = '\0';
-		dirname(tmp_file_path);
+		strcpy(tmp_file_path, dirname(tmp_file_path));
 		strcat(tmp_file_path, "/");
 		strcat(tmp_file_path, BAR_FLY_TMP_MP4_FILE_NAME);
 	}
