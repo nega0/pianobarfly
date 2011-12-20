@@ -39,11 +39,6 @@
 #include "fly_id3.h"
 #include "ui.h"
 
-/**
- * Name of the temporary file used in tagging.
- */
-#define BAR_FLY_TMP_MP3_FILE_NAME "pianobarfly-tmp.mp3"
-
 int BarFlyID3AddCover(struct id3_tag* tag, uint8_t const* cover_art,
 		size_t cover_size, BarSettings_t const* settings)
 {
@@ -232,12 +227,6 @@ end:
 int BarFlyID3WriteFile(char const* file_path, struct id3_tag const* tag,
 		BarSettings_t const* settings)
 {
-	/*
-	 * './' + artist + '/' + album + '/' + BAR_FLY_TMP_MP3_FILE_NAME + '\0'
-	 */
-	int const TMP_FILE_PATH_LENGTH = 2 + BAR_FLY_NAME_LENGTH + 1 + 
-			BAR_FLY_NAME_LENGTH + 1 + strlen(BAR_FLY_TMP_MP3_FILE_NAME) + 1;
-
 	int exit_status = 0;
 	int status_int;
 	id3_length_t size1;
@@ -246,11 +235,10 @@ int BarFlyID3WriteFile(char const* file_path, struct id3_tag const* tag,
 	FILE* audio_file = NULL;
 	FILE* tmp_file = NULL;
 	uint8_t audio_buffer[BAR_FLY_COPY_BLOCK_SIZE];
-	char tmp_file_path[TMP_FILE_PATH_LENGTH];
+	char tmp_file_path[L_tmpnam];
+	char* junk;
 	size_t read_count;
 	size_t write_count;
-
-	tmp_file_path[0] = '\0';
 
 	/*
 	 * For starters libid3tag kinda sucks.  It will only write a tag to a file 
@@ -298,17 +286,12 @@ int BarFlyID3WriteFile(char const* file_path, struct id3_tag const* tag,
 
 	/*
 	 * Open the tmp file.
+	 *
+	 * Assigning the return value of tmpnam() to a junk pointer to get the
+	 * compiler to be quiet.
 	 */
-	if (strchr(file_path, '/') == NULL) {
-		strcpy(tmp_file_path, BAR_FLY_TMP_MP3_FILE_NAME);
-	} else {
-		strncpy(tmp_file_path, file_path, TMP_FILE_PATH_LENGTH);
-		tmp_file_path[TMP_FILE_PATH_LENGTH - 1] = '\0';
-		dirname(tmp_file_path);
-		strcat(tmp_file_path, "/");
-		strcat(tmp_file_path, BAR_FLY_TMP_MP3_FILE_NAME);
-	}
-
+	junk = tmpnam(tmp_file_path);
+	junk = junk;
 	tmp_file = fopen(tmp_file_path, "w+b");
 	if (tmp_file == NULL) {
 		BarUiMsg(settings, MSG_ERR, "Could not open the temporary file (%s) "
