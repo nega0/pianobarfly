@@ -1918,7 +1918,6 @@ int BarFlyMp4TagWrite(BarFlyMp4Tag_t* tag, BarSettings_t const* settings)
 	 */
 	junk = tmpnam(tmp_file_path);
 	junk = junk;
-	printf("%s\n", tmp_file_path);
 	tmp_file = fopen(tmp_file_path, "wb");
 	if (tmp_file == NULL) {
 		BarUiMsg(settings, MSG_ERR,
