@@ -54,6 +54,7 @@
  * Apple doesn't have a strndup(), so we roll our own
  */
 #ifdef __APPLE__
+#ifdef __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ < 1070
 char * strndup(const char* s, size_t n) {
   size_t l = strlen(s);
   char *r = NULL;
@@ -69,6 +70,7 @@ char * strndup(const char* s, size_t n) {
   r[n] ='\0';
   return r;
 }
+#endif
 #endif
 
 /**
