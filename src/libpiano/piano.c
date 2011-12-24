@@ -132,7 +132,7 @@ void PianoDestroyPlaylist (PianoSong_t *playlist) {
 		free (curSong->feedbackId);
 		free (curSong->seedId);
 		free (curSong->detailUrl);
-		free (curSong->albumDetailURL);
+		free (curSong->songExplorerUrl);
 		free (curSong->albumExplorerUrl);
 		free (curSong->trackToken);
 		lastSong = curSong;

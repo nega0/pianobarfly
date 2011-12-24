@@ -307,8 +307,8 @@ static void PianoXmlParsePlaylistCb (const char *key, const ezxml_t value,
 		song->feedbackId = strdup (valueStr);
 	} else if (strcmp ("songDetailURL", key) == 0) {
 		song->detailUrl = strdup (valueStr);
-	} else if (strcmp ("albumDetailURL", key) == 0) {
-		song->albumDetailURL = strdup (valueStr);
+	} else if (strcmp ("songExplorerUrl", key) == 0) {
+		song->songExplorerUrl = strdup (valueStr);
 	} else if (strcmp ("albumExplorerUrl", key) == 0) {
 		song->albumExplorerUrl = strdup (valueStr);
 	} else if (strcmp ("trackToken", key) == 0) {
