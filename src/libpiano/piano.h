@@ -80,7 +80,7 @@ typedef struct PianoSong {
 	PianoSongRating_t rating;
 	PianoAudioFormat_t audioFormat;
 	struct PianoSong *next;
-	char* albumDetailURL;
+	char* songExplorerUrl;
 	char* albumExplorerUrl;	
 } PianoSong_t;
 
