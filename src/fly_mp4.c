@@ -1924,6 +1924,10 @@ int BarFlyMp4TagWrite(BarFlyMp4Tag_t* tag, BarSettings_t const* settings)
 		goto error;
 	}
 
+	/*
+	 * Copy everything up to the start of the moov atom from the MP4 file to the
+	 * tmp file.
+	 */
 	status = fseek(tag->mp4_file, 0, SEEK_SET);
 	if (status != 0) {
 		BarUiMsg(settings, MSG_ERR, "Error seeking in the file (%d:%s).\n",
@@ -1931,10 +1935,6 @@ int BarFlyMp4TagWrite(BarFlyMp4Tag_t* tag, BarSettings_t const* settings)
 		goto error;
 	}
 
-	/*
-	 * Copy everything up to the start of the moov atom from the MP4 file to the
-	 * tmp file.
-	 */
 	atom = _BarFlyMp4TagFindAtom(tag, "moov");
 	if (atom == NULL) {
 		goto error;
