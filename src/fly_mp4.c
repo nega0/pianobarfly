@@ -138,6 +138,11 @@
 #define BAR_FLY_MP4_ATOM_YEAR_CLASS {0x00, 0x00, 0x00, 0x01}
 
 /**
+ * Name of the tmp file used in tagging.
+ */
+#define BAR_FLY_TMP_MP4_FILE_NAME "pianobarfly-tmp.m4a"
+
+/**
  * The MP4 atom structure.  This structure represents a single atom in an MP4 
  * file.
  */
@@ -1902,8 +1907,6 @@ int BarFlyMp4TagWrite(BarFlyMp4Tag_t* tag, BarSettings_t const* settings)
 	size_t audio_buf_size;
 	size_t read_count;
 	size_t write_count;
-	char tmp_file_path[L_tmpnam];
-	char* junk;
 	size_t atom_size;
 	BarFlyMp4Atom_t* atom;
 
@@ -1912,17 +1915,12 @@ int BarFlyMp4TagWrite(BarFlyMp4Tag_t* tag, BarSettings_t const* settings)
 
 	/*
 	 * Open the tmp file.
-	 *
-	 * Assigning the return value of tmpnam() to a junk pointer to get the
-	 * compiler to be quiet.
 	 */
-	junk = tmpnam(tmp_file_path);
-	junk = junk;
-	tmp_file = fopen(tmp_file_path, "wb");
+	tmp_file = fopen(BAR_FLY_TMP_MP4_FILE_NAME, "wb");
 	if (tmp_file == NULL) {
 		BarUiMsg(settings, MSG_ERR,
 				"Error opening the temporary file (%s) (%d:%s).\n",
-				tmp_file_path, errno, strerror(errno));
+				BAR_FLY_TMP_MP4_FILE_NAME, errno, strerror(errno));
 		goto error;
 	}
 
@@ -2025,7 +2023,7 @@ int BarFlyMp4TagWrite(BarFlyMp4Tag_t* tag, BarSettings_t const* settings)
 	fclose(tag->mp4_file);
 	tag->mp4_file = NULL;
 
-	status = rename(tmp_file_path, tag->file_path);
+	status = rename(BAR_FLY_TMP_MP4_FILE_NAME, tag->file_path);
 	if (status != 0) {
 		BarUiMsg(settings, MSG_ERR, "Error overwriting the MP4 file (%d:%s).\n",
 				errno, strerror(errno));
@@ -2035,6 +2033,11 @@ int BarFlyMp4TagWrite(BarFlyMp4Tag_t* tag, BarSettings_t const* settings)
 	goto end;
 
 error:
+	/*
+	 * Delete the tmp file if it exists.
+	 */
+	unlink(BAR_FLY_TMP_MP4_FILE_NAME);
+
 	exit_status = -1;
 
 end:
