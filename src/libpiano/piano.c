@@ -1,3 +1,4 @@
+/* -*- mode: c; tab-width: 8; c-basic-offset: 8; indent-tabs-mode: t -*- */
 /*
 Copyright (c) 2008-2011
 	Lars-Dominik Braun <lars@6xq.net>
@@ -42,7 +43,7 @@ THE SOFTWARE.
 #include "crypt.h"
 #include "config.h"
 
-#define PIANO_PROTOCOL_VERSION "33"
+#define PIANO_PROTOCOL_VERSION "34"
 #define PIANO_RPC_HOST "www.pandora.com"
 #define PIANO_RPC_PORT "80"
 #define PIANO_RPC_PATH "/radio/xmlrpc/v" PIANO_PROTOCOL_VERSION "?"
@@ -62,7 +63,7 @@ void PianoInit (PianoHandle_t *ph) {
 
 /*	destroy artist linked list
  */
-void PianoDestroyArtists (PianoArtist_t *artists) {
+static void PianoDestroyArtists (PianoArtist_t *artists) {
 	PianoArtist_t *curArtist, *lastArtist;
 
 	curArtist = artists;
@@ -92,13 +93,13 @@ void PianoDestroyStation (PianoStation_t *station) {
 	free (station->name);
 	free (station->id);
 	free (station->seedId);
-	memset (station, 0, sizeof (station));
+	memset (station, 0, sizeof (*station));
 }
 
 /*	free complete station list
  *	@param piano handle
  */
-void PianoDestroyStations (PianoStation_t *stations) {
+static void PianoDestroyStations (PianoStation_t *stations) {
 	PianoStation_t *curStation, *lastStation;
 
 	curStation = stations;
@@ -150,7 +151,7 @@ void PianoDestroyStationInfo (PianoStationInfo_t *info) {
 
 /*	destroy genre linked list
  */
-void PianoDestroyGenres (PianoGenre_t *genres) {
+static void PianoDestroyGenres (PianoGenre_t *genres) {
 	PianoGenre_t *curGenre, *lastGenre;
 
 	curGenre = genres;
@@ -165,7 +166,7 @@ void PianoDestroyGenres (PianoGenre_t *genres) {
 
 /*	destroy user information
  */
-void PianoDestroyUserInfo (PianoUserInfo_t *user) {
+static void PianoDestroyUserInfo (PianoUserInfo_t *user) {
 	free (user->webAuthToken);
 	free (user->authToken);
 	free (user->listenerId);
@@ -270,8 +271,17 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 							"<?xml version=\"1.0\"?><methodCall>"
 							"<methodName>listener.authenticateListener</methodName>"
 							"<params><param><value><int>%lu</int></value></param>"
+							"<param><value><string></string></value></param>"
+							/* user */
 							"<param><value><string>%s</string></value></param>"
+							/* password */
 							"<param><value><string>%s</string></value></param>"
+							/* vendor */
+							"<param><value><string>html5tuner</string></value></param>"
+							"<param><value><string/></value></param>"
+							"<param><value><string/></value></param>"
+							"<param><value><string>HTML5</string></value></param>"
+							"<param><value><boolean>1</boolean></value></param>"
 							"</params></methodCall>", (unsigned long) timestamp,
 							logindata->user, xmlencodedPassword);
 					snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH
@@ -890,24 +900,24 @@ PianoReturn_t PianoResponse (PianoHandle_t *ph, PianoRequest_t *req) {
 
 					/* abusing parseNarrative; has same xml structure */
 					ret = PianoXmlParseNarrative (req->responseData, &cryptedTimestamp);
-					if (cryptedTimestamp != NULL) {
+					if (ret == PIANO_RET_OK && cryptedTimestamp != NULL) {
 						unsigned long timestamp = 0;
-						time_t realTimestamp = time (NULL);
+						const time_t realTimestamp = time (NULL);
 						char *decryptedTimestamp = NULL, *decryptedPos = NULL;
 						unsigned char i = 4;
 
+						ret = PIANO_RET_ERR;
 						if ((decryptedTimestamp = PianoDecryptString (cryptedTimestamp)) != NULL) {
 							decryptedPos = decryptedTimestamp;
 							/* skip four bytes garbage? at beginning */
 							while (i-- > 0 && *decryptedPos++ != '\0');
 							timestamp = strtoul (decryptedPos, NULL, 0);
 							ph->timeOffset = realTimestamp - timestamp;
-
-							free (decryptedTimestamp);
+							ret = PIANO_RET_CONTINUE_REQUEST;
 						}
-						free (cryptedTimestamp);
+						free (decryptedTimestamp);
 					}
-					ret = PIANO_RET_CONTINUE_REQUEST;
+					free (cryptedTimestamp);
 					++reqData->step;
 					break;
 				}
@@ -1218,6 +1228,14 @@ const char *PianoErrorToStr (PianoReturn_t ret) {
 
 		case PIANO_RET_REMOVING_TOO_MANY_SEEDS:
 			return "Last seed cannot be removed.";
+			break;
+
+		case PIANO_RET_EXCESSIVE_ACTIVITY:
+			return "Excessive activity.";
+			break;
+
+		case PIANO_RET_DAILY_SKIP_LIMIT_REACHED:
+			return "Daily skip limit reached.";
 			break;
 
 		default:

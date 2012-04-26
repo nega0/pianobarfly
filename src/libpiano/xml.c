@@ -32,6 +32,7 @@ THE SOFTWARE.
 #include <ezxml.h>
 #include <assert.h>
 
+#include "xml.h"
 #include "piano.h"
 #include "crypt.h"
 #include "config.h"
@@ -93,6 +94,10 @@ static void PianoXmlIsFaultCb (const char *key, const ezxml_t value,
 						*ret = PIANO_RET_QUICKMIX_NOT_PLAYABLE;
 					} else if (strcmp ("REMOVING_TOO_MANY_SEEDS", matchStart) == 0) {
 						*ret = PIANO_RET_REMOVING_TOO_MANY_SEEDS;
+					} else if (strcmp ("EXCESSIVE_ACTIVITY", matchStart) == 0) {
+						*ret = PIANO_RET_EXCESSIVE_ACTIVITY;
+					} else if (strcmp ("DAILY_SKIP_LIMIT_REACHED", matchStart) == 0) {
+						*ret = PIANO_RET_DAILY_SKIP_LIMIT_REACHED;
 					} else {
 						*ret = PIANO_RET_ERR;
 						printf (PACKAGE ": Unknown error %s in %s\n",
@@ -299,7 +304,7 @@ static void PianoXmlParsePlaylistCb (const char *key, const ezxml_t value,
 		} else if (strcmp (valueStr, "mp3") == 0) {
 			song->audioFormat = PIANO_AF_MP3;
 		} else if (strcmp (valueStr, "mp3-hifi") == 0) {
-			song->audioFormat = PIANO_AF_MP3_HI;
+ 			song->audioFormat = PIANO_AF_MP3_HI;
 		}
 	} else if (strcmp ("artistMusicId", key) == 0) {
 		song->artistMusicId = strdup (valueStr);
@@ -314,7 +319,6 @@ static void PianoXmlParsePlaylistCb (const char *key, const ezxml_t value,
 	} else if (strcmp ("trackToken", key) == 0) {
 		song->trackToken = strdup (valueStr);
 	}
-	
 }
 
 /*	parses userinfos sent by pandora as login response
@@ -695,9 +699,10 @@ PianoReturn_t PianoXmlParseSeedSuggestions (char *xml,
  *	@return encoded string or NULL
  */
 char *PianoXmlEncodeString (const char *s) {
-	char *replacements[] = {"&&amp;", "'&apos;", "\"&quot;", "<&lt;",
-			">&gt;", NULL};
-	char **r, *sOut, *sOutCurr, found;
+	static const char *replacements[] = {"&&amp;", "'&apos;", "\"&quot;",
+			"<&lt;", ">&gt;", NULL};
+	const char **r;
+	char *sOut, *sOutCurr, found;
 
 	if ((sOut = calloc (strlen (s) * 5 + 1, sizeof (*sOut))) == NULL) {
 		return NULL;
