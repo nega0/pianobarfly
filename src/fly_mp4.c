@@ -138,11 +138,6 @@
 #define BAR_FLY_MP4_ATOM_YEAR_CLASS {0x00, 0x00, 0x00, 0x01}
 
 /**
- * Name of the tmp file used in tagging.
- */
-#define BAR_FLY_TMP_MP4_FILE_NAME "pianobarfly-tmp.m4a"
-
-/**
  * The MP4 atom structure.  This structure represents a single atom in an MP4 
  * file.
  */
@@ -194,7 +189,7 @@ struct BarFlyMp4Atom {
 
 	/**
 	 * The offset of the start of the atom in bytes from the beginning of the
-	 * file origianl MP4 file.  -1 means the atom was not read from the file.
+	 * origianl MP4 file.  -1 means the atom was not read from the file.
 	 */
 	long offset;
 };
@@ -1899,12 +1894,6 @@ end:
 
 int BarFlyMp4TagWrite(BarFlyMp4Tag_t* tag, BarSettings_t const* settings)
 {
-	/*
-	 * './' + artist + '/' + album + '/' + BAR_FLY_TMP_MP4_FILE_NAME + '\0'
-	 */
-	int const TMP_FILE_PATH_LENGTH = 2 + BAR_FLY_NAME_LENGTH + 1 +
-			BAR_FLY_NAME_LENGTH + 1 + strlen(BAR_FLY_TMP_MP4_FILE_NAME) + 1;
-
 	int exit_status = 0;
 	int status;
 	uint8_t* buffer = NULL;
@@ -1913,7 +1902,8 @@ int BarFlyMp4TagWrite(BarFlyMp4Tag_t* tag, BarSettings_t const* settings)
 	size_t audio_buf_size;
 	size_t read_count;
 	size_t write_count;
-	char tmp_file_path[TMP_FILE_PATH_LENGTH];
+	char tmp_file_path[L_tmpnam];
+	char* junk;
 	size_t atom_size;
 	BarFlyMp4Atom_t* atom;
 
@@ -1922,17 +1912,12 @@ int BarFlyMp4TagWrite(BarFlyMp4Tag_t* tag, BarSettings_t const* settings)
 
 	/*
 	 * Open the tmp file.
+	 *
+	 * Assigning the return value of tmpnam() to a junk pointer to get the
+	 * compiler to be quiet.
 	 */
-	if (strchr(tag->file_path, '/') == NULL) {
-		strcpy(tmp_file_path, BAR_FLY_TMP_MP4_FILE_NAME);
-	} else {
-		strncpy(tmp_file_path, tag->file_path, TMP_FILE_PATH_LENGTH);
-		tmp_file_path[TMP_FILE_PATH_LENGTH - 1] = '\0';
-		dirname(tmp_file_path);
-		strcat(tmp_file_path, "/");
-		strcat(tmp_file_path, BAR_FLY_TMP_MP4_FILE_NAME);
-	}
-
+	junk = tmpnam(tmp_file_path);
+	junk = junk;
 	tmp_file = fopen(tmp_file_path, "wb");
 	if (tmp_file == NULL) {
 		BarUiMsg(settings, MSG_ERR,
