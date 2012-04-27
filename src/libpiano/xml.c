@@ -304,7 +304,7 @@ static void PianoXmlParsePlaylistCb (const char *key, const ezxml_t value,
 		} else if (strcmp (valueStr, "mp3") == 0) {
 			song->audioFormat = PIANO_AF_MP3;
 		} else if (strcmp (valueStr, "mp3-hifi") == 0) {
- 			song->audioFormat = PIANO_AF_MP3_HI;
+			song->audioFormat = PIANO_AF_MP3_HI;
 		}
 	} else if (strcmp ("artistMusicId", key) == 0) {
 		song->artistMusicId = strdup (valueStr);
@@ -319,6 +319,7 @@ static void PianoXmlParsePlaylistCb (const char *key, const ezxml_t value,
 	} else if (strcmp ("trackToken", key) == 0) {
 		song->trackToken = strdup (valueStr);
 	}
+	
 }
 
 /*	parses userinfos sent by pandora as login response
