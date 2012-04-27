@@ -90,10 +90,34 @@ static bool BarMainLoginUser (BarApp_t *app) {
 	WaitressReturn_t wRet;
 	PianoRequestDataLogin_t reqData;
 	bool ret;
+#if 0
+	WaitressHandle_t waithSync;
+	char *syncTime;
+	unsigned long int syncTimeInt;
+
+	/* skip sync step by fetching time from somewhere else */
+	WaitressInit (&waithSync);
+	WaitressSetUrl (&waithSync, "http://ridetheclown.com/s2/synctime.php");
+	if (app->settings.proxy != NULL && strlen (app->settings.proxy) > 0) {
+		WaitressSetProxy (&waithSync, app->settings.proxy);
+	}
+	wRet = WaitressFetchBuf (&waithSync, &syncTime);
+	WaitressFree (&waithSync);
+	if (wRet != WAITRESS_RET_OK) {
+		BarUiMsg (&app->settings, MSG_ERR, "Unable to sync: %s\n",
+				WaitressErrorToStr (wRet));
+		return false;
+	}
+
+	syncTimeInt = strtoul (syncTime, NULL, 0);
+	app->ph.timeOffset = time (NULL) - syncTimeInt;
+	free (syncTime);
+#endif
+	app->ph.timeOffset = -30239998; /* woo! magic number */
 
 	reqData.user = app->settings.username;
 	reqData.password = app->settings.password;
-	reqData.step = 0;
+	reqData.step = 1;
 
 	BarUiMsg (&app->settings, MSG_INFO, "Login... ");
 	ret = BarUiPianoCall (app, PIANO_REQUEST_LOGIN, &reqData, &pRet, &wRet);
