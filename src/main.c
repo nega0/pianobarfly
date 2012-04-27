@@ -90,6 +90,7 @@ static bool BarMainLoginUser (BarApp_t *app) {
 	WaitressReturn_t wRet;
 	PianoRequestDataLogin_t reqData;
 	bool ret;
+#if 0
 	WaitressHandle_t waithSync;
 	char *syncTime;
 	unsigned long int syncTimeInt;
@@ -111,6 +112,8 @@ static bool BarMainLoginUser (BarApp_t *app) {
 	syncTimeInt = strtoul (syncTime, NULL, 0);
 	app->ph.timeOffset = time (NULL) - syncTimeInt;
 	free (syncTime);
+#endif
+	app->ph.timeOffset = -30239998; /* woo! magic number */
 
 	reqData.user = app->settings.username;
 	reqData.password = app->settings.password;
