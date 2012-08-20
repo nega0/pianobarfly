@@ -39,6 +39,9 @@ THE SOFTWARE.
 #include <poll.h>
 #include <errno.h>
 #include <assert.h>
+#include <stdint.h>
+
+#include <gnutls/x509.h>
 
 #include <gnutls/x509.h>
 
@@ -52,6 +55,19 @@ typedef struct {
 	char *data;
 	size_t pos;
 } WaitressFetchBufCbBuffer_t;
+
+static WaitressReturn_t WaitressReceiveHeaders (WaitressHandle_t *, size_t *);
+
+#define READ_RET(buf, count, size) \
+		if ((wRet = waith->request.read (waith, buf, count, size)) != \
+				WAITRESS_RET_OK) { \
+			return wRet; \
+		}
+
+#define WRITE_RET(buf, count) \
+		if ((wRet = waith->request.write (waith, buf, count)) != WAITRESS_RET_OK) { \
+			return wRet; \
+		}
 
 void WaitressInit (WaitressHandle_t *waith) {
 	assert (waith != NULL);
@@ -72,7 +88,7 @@ void WaitressFree (WaitressHandle_t *waith) {
  *	@param Waitress handle
  *	@return true|false
  */
-bool WaitressProxyEnabled (const WaitressHandle_t *waith) {
+static bool WaitressProxyEnabled (const WaitressHandle_t *waith) {
 	assert (waith != NULL);
 
 	return waith->proxy.host != NULL;
@@ -522,18 +538,19 @@ static ssize_t WaitressPollRead (void *data, void *buf, size_t count) {
 }
 
 static WaitressReturn_t WaitressOrdinaryRead (void *data, char *buf,
-		const size_t size, ssize_t *retSize) {
+		const size_t size, size_t *retSize) {
 	WaitressHandle_t *waith = data;
 
 	const ssize_t ret = WaitressPollRead (waith, buf, size);
 	if (ret != -1) {
-		*retSize = ret;
+		assert (ret >= 0);
+		*retSize = (size_t) ret;
 	}
 	return waith->request.readWriteRet;
 }
 
 static WaitressReturn_t WaitressGnutlsRead (void *data, char *buf,
-		const size_t size, ssize_t *retSize) {
+		const size_t size, size_t *retSize) {
 	WaitressHandle_t *waith = data;
 
 	ssize_t ret = gnutls_record_recv (waith->request.tlsSession, buf, size);
@@ -818,27 +835,28 @@ static WaitressReturn_t WaitressConnect (WaitressHandle_t *waith) {
 		/* set up proxy tunnel */
 		if (WaitressProxyEnabled (waith)) {
 			char buf[256];
-			ssize_t size;
+			size_t size;
+			WaitressReturn_t wRet;
+
 			snprintf (buf, sizeof (buf), "CONNECT %s:%s HTTP/"
 					WAITRESS_HTTP_VERSION "\r\n"
 					"Host: %s:%s\r\n"
 					"Proxy-Connection: close\r\n",
 					waith->url.host, WaitressDefaultPort (&waith->url),
 					waith->url.host, WaitressDefaultPort (&waith->url));
-			WaitressOrdinaryWrite (waith, buf, strlen (buf));
+			WRITE_RET (buf, strlen (buf));
 
 			/* write authorization headers */
 			if (WaitressFormatAuthorization (waith, &waith->proxy, "Proxy-",
 					buf, WAITRESS_BUFFER_SIZE)) {
-				WaitressOrdinaryWrite (waith, buf, strlen (buf));
+				WRITE_RET (buf, strlen (buf));
 			}
 
-			WaitressOrdinaryWrite (waith, "\r\n", 2);
+			WRITE_RET ("\r\n", 2);
 
-			WaitressOrdinaryRead (waith, buf, sizeof (buf)-1, &size);
-			buf[size] = 0;
-			if (WaitressParseStatusline (buf) != 200) {
-				return WAITRESS_RET_CONNECT_REFUSED;
+			if ((wRet = WaitressReceiveHeaders (waith, &size)) !=
+					WAITRESS_RET_OK) {
+				return wRet;
 			}
 		}
 
@@ -849,6 +867,9 @@ static WaitressReturn_t WaitressConnect (WaitressHandle_t *waith) {
 		if (WaitressTlsVerify (waith) != 0) {
 			return WAITRESS_RET_TLS_HANDSHAKE_ERR;
 		}
+		/* now we can talk encrypted */
+		waith->request.read = WaitressGnutlsRead;
+		waith->request.write = WaitressGnutlsWrite;
 	}
 
 	return WAITRESS_RET_OK;
@@ -857,11 +878,6 @@ static WaitressReturn_t WaitressConnect (WaitressHandle_t *waith) {
 /*	Write http header/post data to socket
  */
 static WaitressReturn_t WaitressSendRequest (WaitressHandle_t *waith) {
-#define WRITE_RET(buf, count) \
-		if ((wRet = waith->request.write (waith, buf, count)) != WAITRESS_RET_OK) { \
-			return wRet; \
-		}
-
 	assert (waith != NULL);
 	assert (waith->request.buf != NULL);
 
@@ -926,26 +942,18 @@ static WaitressReturn_t WaitressSendRequest (WaitressHandle_t *waith) {
 	}
 
 	return WAITRESS_RET_OK;
-#undef WRITE_RET
 }
 
-/*	read response header and data
+/*	receive response headers
+ *	@param Waitress handle
+ *	@param return unhandled bytes count in buf
  */
-static WaitressReturn_t WaitressReceiveResponse (WaitressHandle_t *waith) {
-#define READ_RET(buf, count, size) \
-		if ((wRet = waith->request.read (waith, buf, count, size)) != \
-				WAITRESS_RET_OK) { \
-			return wRet; \
-		}
-
-	assert (waith != NULL);
-	assert (waith->request.buf != NULL);
-
+static WaitressReturn_t WaitressReceiveHeaders (WaitressHandle_t *waith,
+		size_t *retRemaining) {
 	char * const buf = waith->request.buf;
+	size_t bufFilled = 0, recvSize = 0;
 	char *nextLine = NULL, *thisLine = NULL;
 	enum {HDRM_HEAD, HDRM_LINES, HDRM_FINISHED} hdrParseMode = HDRM_HEAD;
-	ssize_t recvSize = 0;
-	size_t bufFilled = 0;
 	WaitressReturn_t wRet = WAITRESS_RET_OK;
 
 	/* receive answer */
@@ -1019,7 +1027,25 @@ static WaitressReturn_t WaitressReceiveResponse (WaitressHandle_t *waith) {
 		bufFilled -= (thisLine-buf);
 	} /* end while hdrParseMode */
 
-	recvSize = bufFilled;
+	*retRemaining = bufFilled;
+
+	return wRet;
+}
+
+/*	read response header and data
+ */
+static WaitressReturn_t WaitressReceiveResponse (WaitressHandle_t *waith) {
+	assert (waith != NULL);
+	assert (waith->request.buf != NULL);
+
+	char * const buf = waith->request.buf;
+	size_t recvSize = 0;
+	WaitressReturn_t wRet = WAITRESS_RET_OK;
+
+	if ((wRet = WaitressReceiveHeaders (waith, &recvSize)) != WAITRESS_RET_OK) {
+		return wRet;
+	}
+
 	do {
 		/* data must be \0-terminated for chunked handler */
 		buf[recvSize] = '\0';
@@ -1044,8 +1070,6 @@ static WaitressReturn_t WaitressReceiveResponse (WaitressHandle_t *waith) {
 	} while (recvSize > 0);
 
 	return WAITRESS_RET_OK;
-
-#undef READ_RET
 }
 
 /*	Receive data from host and call *callback ()
@@ -1057,14 +1081,12 @@ WaitressReturn_t WaitressFetchCall (WaitressHandle_t *waith) {
 
 	/* initialize */
 	memset (&waith->request, 0, sizeof (waith->request));
+	waith->request.sockfd = -1;
 	waith->request.dataHandler = WaitressHandleIdentity;
 	waith->request.read = WaitressOrdinaryRead;
 	waith->request.write = WaitressOrdinaryWrite;
 
 	if (waith->url.tls) {
-		waith->request.read = WaitressGnutlsRead;
-		waith->request.write = WaitressGnutlsWrite;
-
 		gnutls_init (&waith->request.tlsSession, GNUTLS_CLIENT);
 		gnutls_set_default_priority (waith->request.tlsSession);
 
@@ -1084,25 +1106,29 @@ WaitressReturn_t WaitressFetchCall (WaitressHandle_t *waith) {
 				WaitressPollWrite);
 	}
 
+	/* buffer is required for connect already */
+	waith->request.buf = malloc (WAITRESS_BUFFER_SIZE *
+			sizeof (*waith->request.buf));
+
 	/* request */
 	if ((wRet = WaitressConnect (waith)) == WAITRESS_RET_OK) {
-		waith->request.buf = malloc (WAITRESS_BUFFER_SIZE *
-				sizeof (*waith->request.buf));
-
 		if ((wRet = WaitressSendRequest (waith)) == WAITRESS_RET_OK) {
 			wRet = WaitressReceiveResponse (waith);
 		}
-
-		free (waith->request.buf);
+		if (waith->url.tls) {
+			gnutls_bye (waith->request.tlsSession, GNUTLS_SHUT_RDWR);
+		}
 	}
 
 	/* cleanup */
 	if (waith->url.tls) {
-		gnutls_bye (waith->request.tlsSession, GNUTLS_SHUT_RDWR);
 		gnutls_deinit (waith->request.tlsSession);
 		gnutls_certificate_free_credentials (waith->tlsCred);
 	}
-	close (waith->request.sockfd);
+	if (waith->request.sockfd != -1) {
+		close (waith->request.sockfd);
+	}
+	free (waith->request.buf);
 
 	if (wRet == WAITRESS_RET_OK &&
 			waith->request.contentReceived < waith->request.contentLength) {

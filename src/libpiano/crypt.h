@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2008-2010
+Copyright (c) 2008-2011
 	Lars-Dominik Braun <lars@6xq.net>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -24,7 +24,10 @@ THE SOFTWARE.
 #ifndef _CRYPH_H
 #define _CRYPT_H
 
-char *PianoDecryptString (const char *strInput);
-char *PianoEncryptString (const char *strInput);
+#include <gcrypt.h>
+
+char *PianoDecryptString (gcry_cipher_hd_t, const char * const,
+		size_t * const);
+char *PianoEncryptString (gcry_cipher_hd_t, const char *);
 
 #endif /* _CRYPT_H */

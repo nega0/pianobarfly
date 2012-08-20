@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2008-2011
+Copyright (c) 2008-2012
 	Lars-Dominik Braun <lars@6xq.net>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -24,6 +24,8 @@ THE SOFTWARE.
 #ifndef _SETTINGS_H
 #define _SETTINGS_H
 
+#include <stdbool.h>
+
 #include <piano.h>
 #include <waitress.h>
 
@@ -40,22 +42,23 @@ typedef enum {
 	BAR_KS_HISTORY = 8,
 	BAR_KS_INFO = 9,
 	BAR_KS_ADDSHARED = 10,
-	BAR_KS_MOVESONG = 11,
-	BAR_KS_SKIP = 12,
-	BAR_KS_PLAYPAUSE = 13,
-	BAR_KS_QUIT = 14,
-	BAR_KS_RENAMESTATION = 15,
-	BAR_KS_SELECTSTATION = 16,
-	BAR_KS_TIRED = 17,
-	BAR_KS_UPCOMING = 18,
-	BAR_KS_SELECTQUICKMIX = 19,
-	BAR_KS_DEBUG = 20,
-	BAR_KS_BOOKMARK = 21,
-	BAR_KS_VOLDOWN = 22,
-	BAR_KS_VOLUP = 23,
-	BAR_KS_MANAGESTATION = 24,
+	BAR_KS_SKIP = 11,
+	BAR_KS_PLAYPAUSE = 12,
+	BAR_KS_QUIT = 13,
+	BAR_KS_RENAMESTATION = 14,
+	BAR_KS_SELECTSTATION = 15,
+	BAR_KS_TIRED = 16,
+	BAR_KS_UPCOMING = 17,
+	BAR_KS_SELECTQUICKMIX = 18,
+	BAR_KS_DEBUG = 19,
+	BAR_KS_BOOKMARK = 20,
+	BAR_KS_VOLDOWN = 21,
+	BAR_KS_VOLUP = 22,
+	BAR_KS_MANAGESTATION = 23,
+	BAR_KS_PLAYPAUSE2 = 24,
+	BAR_KS_CREATESTATIONFROMSONG = 25,
 	/* insert new shortcuts _before_ this element and increase its value */
-	BAR_KS_COUNT = 25,
+	BAR_KS_COUNT = 26,
 } BarKeyShortcutId_t;
 
 #define BAR_KS_DISABLED '\x00'
@@ -78,6 +81,7 @@ typedef struct {
 } BarMsgFormatStr_t;
 
 typedef struct {
+	bool autoselect;
 	unsigned int history;
 	int volume;
 	BarStationSorting_t sortOrder;
@@ -86,11 +90,11 @@ typedef struct {
 	char *audioFileName;
 	int useSpaces;
 	int embedCover;
+	PianoAudioQuality_t audioQuality;
 	char *username;
 	char *password;
 	char *controlProxy; /* non-american listeners need this */
 	char *proxy;
-	char keys[BAR_KS_COUNT];
 	char *autostartStation;
 	char *eventCmd;
 	char *loveIcon;
@@ -100,7 +104,9 @@ typedef struct {
 	char *npStationFormat;
 	char *listSongFormat;
 	char *fifo;
+	char *rpcHost, *partnerUser, *partnerPassword, *device, *inkey, *outkey;
 	char tlsFingerprint[20];
+	char keys[BAR_KS_COUNT];
 	BarMsgFormatStr_t msgFormat[MSG_COUNT];
 } BarSettings_t;
 
