@@ -48,14 +48,12 @@ LIBPIANO_DIR=src/libpiano
 LIBPIANO_SRC=\
 		${LIBPIANO_DIR}/crypt.c \
 		${LIBPIANO_DIR}/piano.c \
-		${LIBPIANO_DIR}/xml.c
+		${LIBPIANO_DIR}/request.c \
+		${LIBPIANO_DIR}/response.c
 LIBPIANO_HDR=\
 		${LIBPIANO_DIR}/config.h \
-		${LIBPIANO_DIR}/crypt_key_output.h \
-		${LIBPIANO_DIR}/xml.h \
 		${LIBPIANO_DIR}/crypt.h \
 		${LIBPIANO_DIR}/piano.h \
-		${LIBPIANO_DIR}/crypt_key_input.h \
 		${LIBPIANO_DIR}/piano_private.h
 LIBPIANO_OBJ=${LIBPIANO_SRC:.c=.o}
 LIBPIANO_RELOBJ=${LIBPIANO_SRC:.c=.lo}
@@ -77,7 +75,10 @@ LIBEZXML_OBJ=${LIBEZXML_SRC:.c=.o}
 LIBEZXML_RELOBJ=${LIBEZXML_SRC:.c=.lo}
 LIBEZXML_INCLUDE=${LIBEZXML_DIR}
 
-ifneq (${DISABLE_FAAD}, 1)
+ifeq (${DISABLE_FAAD}, 1)
+	LIBFAAD_CFLAGS=
+	LIBFAAD_LDFLAGS=
+else
 	LIBFAAD_CFLAGS=-DENABLE_FAAD
 	LIBFAAD_LDFLAGS=-lfaad
 endif
@@ -85,10 +86,20 @@ endif
 ifneq (${DISABLE_MAD}, 1)
 	LIBMAD_CFLAGS=${shell pkg-config --cflags mad} -DENABLE_MAD
 	LIBMAD_LDFLAGS=${shell pkg-config --libs mad}
+else
+	LIBMAD_CFLAGS=-DENABLE_MAD
+	LIBMAD_CFLAGS+=$(shell pkg-config --cflags mad)
+	LIBMAD_LDFLAGS=$(shell pkg-config --libs mad)
 endif
 
-LIBGNUTLS_CFLAGS=
-LIBGNUTLS_LDFLAGS=-lgnutls
+LIBGNUTLS_CFLAGS=$(shell pkg-config --cflags gnutls)
+LIBGNUTLS_LDFLAGS=$(shell pkg-config --libs gnutls)
+
+LIBGCRYPT_CFLAGS=
+LIBGCRYPT_LDFLAGS=-lgcrypt
+
+LIBJSONC_CFLAGS=$(shell pkg-config --cflags json)
+LIBJSONC_LDFLAGS=$(shell pkg-config --libs json)
 
 ifneq (${DISABLE_ID3TAG}, 1)
 	LIBID3TAG_CFLAGS=${shell pkg-config --cflags id3tag} -DENABLE_ID3TAG
@@ -101,50 +112,104 @@ LIBAO_LDFLAGS=${shell pkg-config --libs ao}
 # build pianobarfly
 ifeq (${DYNLINK},1)
 pianobarfly: ${PIANOBAR_OBJ} ${PIANOBAR_HDR} libpiano.so.0
-	${CC} -o $@ ${PIANOBAR_OBJ} ${LDFLAGS} ${LIBAO_LDFLAGS} -lpthread -L. \
-			-lpiano ${LIBFAAD_LDFLAGS} ${LIBMAD_LDFLAGS} ${LIBGNUTLS_LDFLAGS}
+	@echo "  LINK  $@"
+	@${CC} -o $@ ${PIANOBAR_OBJ} ${LDFLAGS} ${LIBAO_LDFLAGS} -lao -lm -lpthread -L. \
+			-lpiano ${LIBFAAD_LDFLAGS} ${LIBMAD_LDFLAGS} ${LIBGNUTLS_LDFLAGS} \
+			${LIBGCRYPT_LDFLAGS} ${LIBJSONC_LDFLAGS}
 else
 pianobarfly: ${PIANOBAR_OBJ} ${PIANOBAR_HDR} ${LIBPIANO_OBJ} ${LIBWAITRESS_OBJ} \
 		${LIBWAITRESS_HDR} ${LIBEZXML_OBJ} ${LIBEZXML_HDR}
-	${CC} ${CFLAGS} ${LDFLAGS} ${PIANOBAR_OBJ} ${LIBPIANO_OBJ} \
-			${LIBWAITRESS_OBJ} ${LIBEZXML_OBJ} ${LIBAO_LDFLAGS} -lpthread \
+	@echo "  LINK  $@"
+	@${CC} ${CFLAGS} ${LDFLAGS} ${PIANOBAR_OBJ} ${LIBPIANO_OBJ} \
+			${LIBWAITRESS_OBJ} ${LIBEZXML_OBJ} ${LIBAO_LDFLAGS} -lao -lm -lpthread \
+			${LIBGCRYPT_LDFLAGS} ${LIBJSONC_LDFLAGS} \
 			${LIBFAAD_LDFLAGS} ${LIBMAD_LDFLAGS} ${LIBGNUTLS_LDFLAGS} ${LIBID3TAG_LDFLAGS} -o $@
 endif
 
 # build shared and static libpiano
 libpiano.so.0: ${LIBPIANO_RELOBJ} ${LIBPIANO_HDR} ${LIBWAITRESS_RELOBJ} \
-		${LIBWAITRESS_HDR} ${LIBEZXML_RELOBJ} ${LIBEZXML_HDR} \
-		${LIBPIANO_OBJ} ${LIBWAITRESS_OBJ} ${LIBEZXML_OBJ}
-	${CC} -shared -Wl,-soname,libpiano.so.0 ${CFLAGS} ${LDFLAGS} \
+		${LIBWAITRESS_HDR} ${LIBPIANO_OBJ} ${LIBWAITRESS_OBJ}
+	@echo "  LINK  $@"
+	@${CC} -shared -Wl,-soname,libpiano.so.0 ${CFLAGS} ${LDFLAGS} \
 			-o libpiano.so.0.0.0 ${LIBPIANO_RELOBJ} \
-			${LIBWAITRESS_RELOBJ} ${LIBEZXML_RELOBJ}
-	ln -s libpiano.so.0.0.0 libpiano.so.0
-	ln -s libpiano.so.0 libpiano.so
-	${AR} rcs libpiano.a ${LIBPIANO_OBJ} ${LIBWAITRESS_OBJ} ${LIBEZXML_OBJ}
+			${LIBWAITRESS_RELOBJ} ${LIBGNUTLS_LDFLAGS} ${LIBGCRYPT_LDFLAGS} \
+			${LIBJSONC_LDFLAGS}
+	@ln -s libpiano.so.0.0.0 libpiano.so.0
+	@ln -s libpiano.so.0 libpiano.so
+	@echo "    AR  libpiano.a"
+	@${AR} rcs libpiano.a ${LIBPIANO_OBJ} ${LIBWAITRESS_OBJ}
 
+
+# build dependency files
+%.d: %.c
+	@set -e; rm -f $@; \
+			$(CC) -M ${CFLAGS} -I ${LIBPIANO_INCLUDE} -I ${LIBWAITRESS_INCLUDE} \
+			${LIBFAAD_CFLAGS} ${LIBMAD_CFLAGS} ${LIBGNUTLS_CFLAGS} \
+			${LIBGCRYPT_CFLAGS} ${LIBJSONC_CFLAGS} $< > $@.$$$$; \
+			sed '1 s,^.*\.o[ :]*,$*.o $@ : ,g' < $@.$$$$ > $@; \
+			rm -f $@.$$$$
+
+-include $(PIANOBAR_SRC:.c=.d)
+-include $(LIBPIANO_SRC:.c=.d)
+-include $(LIBWAITRESS_SRC:.c=.d)
+
+# build standard object files
 %.o: %.c
-	${CC} ${CFLAGS} -I ${LIBPIANO_INCLUDE} -I ${LIBWAITRESS_INCLUDE} \
-			-I ${LIBEZXML_INCLUDE} ${LIBFAAD_CFLAGS} \
-			${LIBMAD_CFLAGS} ${LIBGNUTLS_CFLAGS} ${LIBID3TAG_CFLAGS} ${LIBAO_CFLAGS} -c -o $@ $<
+	@echo "    CC  $<"
+	@${CC} ${CFLAGS} -I ${LIBPIANO_INCLUDE} -I ${LIBWAITRESS_INCLUDE} \
+			-I ${LIBEZXML_INCLUDE} \
+			${LIBFAAD_CFLAGS} ${LIBMAD_CFLAGS} ${LIBGNUTLS_CFLAGS} \
+			${LIBID3TAG_CFLAGS} \
+			${LIBGCRYPT_CFLAGS} ${LIBJSONC_CFLAGS} -c -o $@ $<
 
 # create position independent code (for shared libraries)
 %.lo: %.c
-	${CC} ${CFLAGS} -I ${LIBPIANO_INCLUDE} -I ${LIBWAITRESS_INCLUDE} \
-			-I ${LIBEZXML_INCLUDE} -c -fPIC -o $@ $<
+	@echo "    CC  $< (PIC)"
+	@${CC} ${CFLAGS} -I ${LIBPIANO_INCLUDE} -I ${LIBWAITRESS_INCLUDE} \
+			${LIBJSONC_CFLAGS} \
+			-c -fPIC -o $@ $<
 
 clean:
-	${RM} ${PIANOBAR_OBJ} ${LIBPIANO_OBJ} ${LIBWAITRESS_OBJ} ${LIBWAITRESS_OBJ}/test.o \
-			${LIBEZXML_OBJ} ${LIBPIANO_RELOBJ} ${LIBWAITRESS_RELOBJ} \
-			${LIBEZXML_RELOBJ} pianobarfly libpiano.so* libpiano.a waitress-test
+	@echo " CLEAN"
+	@${RM} ${PIANOBAR_OBJ} ${LIBPIANO_OBJ} ${LIBWAITRESS_OBJ} ${LIBWAITRESS_OBJ}/test.o \
+			${LIBEZXML_OBJ} ${LIBEZXML_RELOBJ} \
+			${LIBPIANO_RELOBJ} ${LIBWAITRESS_RELOBJ} pianobarfly libpiano.so* \
+			libpiano.a waitress-test $(PIANOBAR_SRC:.c=.d) $(LIBPIANO_SRC:.c=.d) \
+			$(LIBWAITRESS_SRC:.c=.d)
 
 all: pianobarfly
 
 debug: pianobarfly
-debug: CFLAGS=-Wall -pedantic -ggdb -DDEBUG
+debug: CFLAGS=-pedantic -ggdb -Wall -Wmissing-declarations -Wshadow -Wcast-qual \
+		-Wformat=2 -Winit-self -Wignored-qualifiers -Wmissing-include-dirs \
+		-Wfloat-equal -Wundef -Wpointer-arith -Wtype-limits -Wbad-function-cast \
+		-Wcast-align -Wclobbered -Wempty-body -Wjump-misses-init -Waddress \
+		-Wlogical-op -Waggregate-return -Wstrict-prototypes \
+		-Wold-style-declaration -Wold-style-definition -Wmissing-parameter-type \
+		-Wmissing-prototypes -Wmissing-field-initializers -Woverride-init \
+		-Wpacked -Wredundant-decls -Wnested-externs
+# warnings for gcc 4.5; disabled:
+# -Wswitch-default: too many bogus warnings
+# -Wswitch-enum: too many bogus warnings
+# -Wunused-parameter: too many bogus warnings
+# -Wstrict-overflow: depends on optimization level
+# -Wunsafe-loop-optimizations: depends on optimization level
+# -Wwrite-strings: to be enabled
+# -Wconversion: too many (bogus?) warnings
+# -Wsign-conversion: same here
+# -Wsign-compare: to be enabled
+# -Wmissing-noreturn: recommendation
+# -Wmissing-format-attribute: same here
+# -Wpadded: have a closer look at this one
+# -Winline: we don't care
+# -Winvalid-pch: not our business
+# -Wdisabled-optimization: depends on optimization level
+# -Wstack-protector: we don't use stack protector
+# -Woverlength-strings: over-portability-ish
 
 waitress-test: CFLAGS+= -DTEST
 waitress-test: ${LIBWAITRESS_OBJ}
-	${CC} ${LDFLAGS} ${LIBWAITRESS_OBJ} -o waitress-test
+	${CC} ${LDFLAGS} ${LIBWAITRESS_OBJ} ${LIBGNUTLS_LDFLAGS} -o waitress-test
 
 test: waitress-test
 	./waitress-test
