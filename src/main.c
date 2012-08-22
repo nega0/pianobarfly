@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2008-2011
+Copyright (c) 2008-2012
 	Lars-Dominik Braun <lars@6xq.net>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -46,6 +46,7 @@ THE SOFTWARE.
 #include <assert.h>
 #include <stdbool.h>
 #include <limits.h>
+#include <signal.h>
 
 /* pandora.com library */
 #include <piano.h>
@@ -90,6 +91,30 @@ static bool BarMainLoginUser (BarApp_t *app) {
 	WaitressReturn_t wRet;
 	PianoRequestDataLogin_t reqData;
 	bool ret;
+#if 0
+	WaitressHandle_t waithSync;
+	char *syncTime;
+	unsigned long int syncTimeInt;
+
+	/* skip sync step by fetching time from somewhere else */
+	WaitressInit (&waithSync);
+	WaitressSetUrl (&waithSync, "http://ridetheclown.com/s2/synctime.php");
+	if (app->settings.proxy != NULL && strlen (app->settings.proxy) > 0) {
+		WaitressSetProxy (&waithSync, app->settings.proxy);
+	}
+	wRet = WaitressFetchBuf (&waithSync, &syncTime);
+	WaitressFree (&waithSync);
+	if (wRet != WAITRESS_RET_OK) {
+		BarUiMsg (&app->settings, MSG_ERR, "Unable to sync: %s\n",
+				WaitressErrorToStr (wRet));
+		return false;
+	}
+
+	syncTimeInt = strtoul (syncTime, NULL, 0);
+	app->ph.timeOffset = time (NULL) - syncTimeInt;
+	free (syncTime);
+#endif
+	app->ph.timeOffset = -30239998; /* woo! magic number */
 
 	reqData.user = app->settings.username;
 	reqData.password = app->settings.password;
@@ -116,7 +141,8 @@ static void BarMainGetLoginCredentials (BarSettings_t *settings,
 		char passBuf[100];
 		BarUiMsg (settings, MSG_QUESTION, "Password: ");
 		BarReadlineStr (passBuf, sizeof (passBuf), input, BAR_RL_NOECHO);
-		write (STDIN_FILENO, "\n", 1);
+		/* write missing newline */
+		puts ("");
 		settings->password = strdup (passBuf);
 	}
 }
@@ -149,7 +175,8 @@ static void BarMainGetInitialStation (BarApp_t *app) {
 	}
 	/* no autostart? ask the user */
 	if (app->curStation == NULL) {
-		app->curStation = BarUiSelectStation (app, app->ph.stations, "Select station: ", NULL);
+		app->curStation = BarUiSelectStation (app, app->ph.stations,
+				"Select station: ", NULL, app->settings.autoselect);
 	}
 	if (app->curStation != NULL) {
 		BarUiPrintStation (&app->settings, app->curStation);
@@ -174,7 +201,7 @@ static void BarMainGetPlaylist (BarApp_t *app) {
 	WaitressReturn_t wRet;
 	PianoRequestDataGetPlaylist_t reqData;
 	reqData.station = app->curStation;
-	reqData.format = app->settings.audioFormat;
+	reqData.quality = app->settings.audioQuality;
 
 	BarUiMsg (&app->settings, MSG_INFO, "Receiving new playlist... ");
 	if (!BarUiPianoCall (app, PIANO_REQUEST_GET_PLAYLIST,
@@ -217,6 +244,7 @@ static void BarMainStartPlayback (BarApp_t *app, pthread_t *playerThread) {
 		app->player.scale = BarPlayerCalcScale (app->player.gain + app->settings.volume);
 		app->player.audioFormat = app->playlist->audioFormat;
 		app->player.settings = &app->settings;
+		pthread_mutex_init (&app->player.pauseMutex, NULL);
 
 		/* Open the audio file. */
 		BarFlyOpen (&app->player.fly, app->playlist, &app->settings);
@@ -247,6 +275,7 @@ static void BarMainPlayerCleanup (BarApp_t *app, pthread_t *playerThread) {
 	/* FIXME: pthread_join blocks everything if network connection
 	 * is hung up e.g. */
 	pthread_join (*playerThread, &threadRet);
+	pthread_mutex_destroy (&app->player.pauseMutex);
 
 	/* don't continue playback if thread reports error */
 	if (threadRet != (void *) PLAYER_RET_OK) {
@@ -317,22 +346,19 @@ static void BarMainLoop (BarApp_t *app) {
 
 		/* check whether player finished playing and start playing new
 		 * song */
-		if (app->player.mode >= PLAYER_FINISHED_PLAYBACK ||
-				app->player.mode == PLAYER_FREED) {
-			if (app->curStation != NULL) {
-				/* what's next? */
-				if (app->playlist != NULL) {
-					PianoSong_t *histsong = app->playlist;
-					app->playlist = app->playlist->next;
-					BarUiHistoryPrepend (app, histsong);
-				}
-				if (app->playlist == NULL) {
-					BarMainGetPlaylist (app);
-				}
-				/* song ready to play */
-				if (app->playlist != NULL) {
-					BarMainStartPlayback (app, &playerThread);
-				}
+		if (app->player.mode == PLAYER_FREED && app->curStation != NULL) {
+			/* what's next? */
+			if (app->playlist != NULL) {
+				PianoSong_t *histsong = app->playlist;
+				app->playlist = app->playlist->next;
+				BarUiHistoryPrepend (app, histsong);
+			}
+			if (app->playlist == NULL) {
+				BarMainGetPlaylist (app);
+			}
+			/* song ready to play */
+			if (app->playlist != NULL) {
+				BarMainStartPlayback (app, &playerThread);
 			}
 		}
 
@@ -374,13 +400,21 @@ int main (int argc, char **argv) {
 	BarTermSetEcho (0);
 	BarTermSetBuffer (0);
 
+	/* signals */
+	signal (SIGPIPE, SIG_IGN);
+
 	/* init some things */
 	ao_initialize ();
+	gcry_check_version (NULL);
+	gcry_control (GCRYCTL_DISABLE_SECMEM, 0);
+	gcry_control (GCRYCTL_INITIALIZATION_FINISHED, 0);
 	gnutls_global_init ();
-	PianoInit (&app.ph);
 
 	BarSettingsInit (&app.settings);
 	BarSettingsRead (&app.settings);
+
+	PianoInit (&app.ph, app.settings.partnerUser, app.settings.partnerPassword,
+			app.settings.device, app.settings.inkey, app.settings.outkey);
 
 	BarUiMsg (&app.settings, MSG_NONE,
 			"Welcome to " PACKAGE " (" VERSION ")! ");
@@ -393,8 +427,7 @@ int main (int argc, char **argv) {
 	}
 
 	WaitressInit (&app.waith);
-	app.waith.url.host = strdup (PIANO_RPC_HOST);
-	app.waith.url.tls = true;
+	app.waith.url.host = app.settings.rpcHost;
 	app.waith.tlsFingerprint = app.settings.tlsFingerprint;
 
 	/* init fds */
@@ -414,9 +447,19 @@ int main (int argc, char **argv) {
 	assert (sizeof (app.input.fds) / sizeof (*app.input.fds) >= 2);
 	app.input.fds[1] = open (app.settings.fifo, O_RDWR);
 	if (app.input.fds[1] != -1) {
-		FD_SET(app.input.fds[1], &app.input.set);
-		BarUiMsg (&app.settings, MSG_INFO, "Control fifo at %s opened\n",
-				app.settings.fifo);
+		struct stat s;
+
+		/* check for file type, must be fifo */
+		fstat (app.input.fds[1], &s);
+		if (!S_ISFIFO (s.st_mode)) {
+			BarUiMsg (&app.settings, MSG_ERR, "File at %s is not a fifo\n", app.settings.fifo);
+			close (app.input.fds[1]);
+			app.input.fds[1] = -1;
+		} else {
+			FD_SET(app.input.fds[1], &app.input.set);
+			BarUiMsg (&app.settings, MSG_INFO, "Control fifo at %s opened\n",
+					app.settings.fifo);
+		}
 	}
 	app.input.maxfd = app.input.fds[0] > app.input.fds[1] ? app.input.fds[0] :
 			app.input.fds[1];

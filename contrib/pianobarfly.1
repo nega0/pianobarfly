@@ -1,3 +1,9 @@
+.\" Continuation line for .TP header.
+.de TQ
+.  br
+.  ns
+.  TP \\$1\" no doublequotes around argument!
+..
 .TH pianobarfly 1
 
 .SH NAME
@@ -32,8 +38,9 @@ http://xiph.org/ao/doc/config.html
 .SH CONFIGURATION
 The configuration file consists of simple
 .B key = value
-lines. Each terminated with a newline (\\n) character. Keys and values are both
-case sensitive.
+lines, each terminated with a newline (\\n) character. Note that keys and
+values are both case sensitive, and there must be exactly one space on each
+side of the equals sign.
 
 act_* keys control 
 .B pianobarfly's
@@ -108,6 +115,7 @@ Skip current song.
 
 .TP
 .B act_songpause = p
+.B act_songpause2 = <Space>
 Pause/Continue
 
 .TP
@@ -133,6 +141,10 @@ Ban song for one month.
 Show next songs in playlist.
 
 .TP
+.B act_stationcreatefromsong = v
+Create new station from the current song or artist.
+
+.TP
 .B act_stationselectquickmix = x
 Select quickmix stations. You can toggle the selection with 't', select all
 with 'a' or select none with 'n'.
@@ -150,9 +162,13 @@ Increase volume.
 Replacement for %@ in station format string. It's " @ " by default.
 
 .TP
-.B audio_format = {aacplus,mp3,mp3-hifi}
-Select audio format. aacplus is default if both libraries (faad, mad) are
-available. mp3-hifi is available for Pandora One customers only.
+.B audio_quality = {high, medium, low}
+Select audio quality.
+
+.TP
+.B autoselect = {1,0}
+Auto-select last remaining item of filtered list. Currently enabled for station
+selection only.
 
 .TP
 .B audio_file_dir = ./mp3
@@ -201,6 +217,13 @@ will use this proxy. The music is streamed directly.
 .TP
 .B embed_cover = true
 If true the cover art will be embedded in the audio file's meta data.
+.B decrypt_password = R=U!LH$O2B#
+
+.TP
+.B device = android-generic
+
+.TP
+.B encrypt_password = 6#26FRL$ZWD
 
 .TP
 .B event_command = path
@@ -212,6 +235,40 @@ File that is executed when event occurs. See section
 Location of control fifo. Defaults to $XDG_CONFIG_HOME/pianobar/ctl (which is
 usually the value above). See section
 .B REMOTE CONTROL
+
+.TP
+.B format_list_song = %i) %a - %t%r
+Available format characters:
+
+.B %i
+Song number
+
+.B %a
+Song artist
+
+.B %t
+Song title
+
+.B %r
+Rating icon
+
+.TP
+.B format_msg_none = %s
+.TQ
+.B format_msg_info = (i) %s
+.TQ
+.B format_msg_nowplaying = |>  %s
+.TQ
+.B format_msg_time = #   %s
+.TQ
+.B format_msg_err = /!\\\\ %s
+.TQ
+.B format_msg_question = [?] %s
+.TQ
+.B format_msg_list = \\t%s
+Message format strings.
+.B %s
+is replaced with the actual message.
 
 .TP
 .B format_nowplaying_song = \[dq]%t\[dq] by \[dq]%a\[dq] on \[dq]%l\[dq]%r%@%s
@@ -250,30 +307,18 @@ Station name
 Station id
 
 .TP
-.B format_msg_none = %s
-.TQ
-.B format_msg_info = (i) %s
-.TQ
-.B format_msg_nowplaying = |>  %s
-.TQ
-.B format_msg_time = #   %s
-.TQ
-.B format_msg_err = /!\\\\ %s
-.TQ
-.B format_msg_question = [?] %s
-.TQ
-.B format_msg_list = \\t%s
-Message format strings.
-.B %s
-is replaced with the actual message.
-
-.TP
 .B history = 5
 Keep a history of the last n songs (5, by default). You can rate these songs.
 
 .TP
 .B love_icon = <3
 Icon for loved songs.
+
+.TP
+.B partner_password = AC7IBG09A3DTSYM4R41UJWL07VLN8JI7
+
+.TP
+.B partner_user = android
 
 .TP
 .B password = plaintext_password
@@ -285,10 +330,17 @@ Use a http proxy. Note that this setting overrides the http_proxy environment
 variable.
 
 .TP
+.B rpc_host = tuner.pandora.com
+
+.TP
 .B sort = {name_az, name_za, quickmix_01_name_az, quickmix_01_name_za, quickmix_10_name_az, quickmix_10_name_za}
 Sort station list by name or type (is quickmix) and name. name_az for example
 sorts by name from a to z, quickmix_01_name_za by type (quickmix at the
 bottom) and name from z to a.
+
+.TP
+.B tls_fingerprint = D9980BA2CC0F97BB03822C6211EAEA4A06EEF427
+Hex-encoded SHA1 fingerprint of Pandora's TLS certificate.
 
 .TP
 .B user = your@user.name
