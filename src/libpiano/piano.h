@@ -25,17 +25,21 @@ THE SOFTWARE.
 #define _PIANO_H
 
 #include <stdbool.h>
+#include <gcrypt.h>
 
 /* this is our public API; don't expect this api to be stable as long as
  * pandora does not provide a stable api
  * all strings _must_ be utf-8 encoded. i won't care, but pandora does. so
  * be nice and check the encoding of your strings. thanks :) */
 
-#define PIANO_RPC_HOST "www.pandora.com"
-#define PIANO_RPC_PORT "80"
+/* Pandora API documentation is available at
+ * http://pan-do-ra-api.wikia.com
+ */
+
+#define PIANO_RPC_HOST "tuner.pandora.com"
+#define PIANO_RPC_PATH "/services/json/?"
 
 typedef struct PianoUserInfo {
-	char *webAuthToken;
 	char *listenerId;
 	char *authToken;
 } PianoUserInfo_t;
@@ -64,12 +68,17 @@ typedef enum {
 	PIANO_AF_MP3_HI = 3
 } PianoAudioFormat_t;
 
+typedef enum {
+	PIANO_AQ_UNKNOWN = 0,
+	PIANO_AQ_LOW = 1,
+	PIANO_AQ_MEDIUM = 2,
+	PIANO_AQ_HIGH = 3,
+} PianoAudioQuality_t;
+
 typedef struct PianoSong {
 	char *artist;
-	char *artistMusicId;
 	char *stationId;
 	char *album;
-	char *userSeed;
 	char *audioUrl;
 	char *coverArt;
 	char *musicId;
@@ -107,12 +116,18 @@ typedef struct PianoGenreCategory {
 	struct PianoGenreCategory *next;
 } PianoGenreCategory_t;
 
+typedef struct PianoPartner {
+	gcry_cipher_hd_t in, out;
+	char *authToken, *device, *user, *password;
+	unsigned int id;
+} PianoPartner_t;
+
 typedef struct PianoHandle {
-	char routeId[9];
 	PianoUserInfo_t user;
 	/* linked lists */
 	PianoStation_t *stations;
 	PianoGenreCategory_t *genreStations;
+	PianoPartner_t partner;
 	int timeOffset;
 } PianoHandle_t;
 
@@ -135,7 +150,6 @@ typedef enum {
 	PIANO_REQUEST_GET_PLAYLIST = 3,
 	PIANO_REQUEST_RATE_SONG = 4,
 	PIANO_REQUEST_ADD_FEEDBACK = 5,
-	PIANO_REQUEST_MOVE_SONG = 6,
 	PIANO_REQUEST_RENAME_STATION = 7,
 	PIANO_REQUEST_DELETE_STATION = 8,
 	PIANO_REQUEST_SEARCH = 9,
@@ -146,7 +160,6 @@ typedef enum {
 	PIANO_REQUEST_GET_GENRE_STATIONS = 14,
 	PIANO_REQUEST_TRANSFORM_STATION = 15,
 	PIANO_REQUEST_EXPLAIN = 16,
-	PIANO_REQUEST_GET_SEED_SUGGESTIONS = 17,
 	PIANO_REQUEST_BOOKMARK_SONG = 18,
 	PIANO_REQUEST_BOOKMARK_ARTIST = 19,
 	PIANO_REQUEST_GET_STATION_INFO = 20,
@@ -172,7 +185,7 @@ typedef struct {
 
 typedef struct {
 	PianoStation_t *station;
-	PianoAudioFormat_t format;
+	PianoAudioQuality_t quality;
 	PianoSong_t *retPlaylist;
 } PianoRequestDataGetPlaylist_t;
 
@@ -188,13 +201,6 @@ typedef struct {
 } PianoRequestDataAddFeedback_t;
 
 typedef struct {
-	PianoSong_t *song;
-	PianoStation_t *from;
-	PianoStation_t *to;
-	unsigned short step;
-} PianoRequestDataMoveSong_t;
-
-typedef struct {
 	PianoStation_t *station;
 	char *newName;
 } PianoRequestDataRenameStation_t;
@@ -205,8 +211,12 @@ typedef struct {
 } PianoRequestDataSearch_t;
 
 typedef struct {
-	char *type;
-	char *id;
+	char *token;
+	enum {
+		PIANO_MUSICTYPE_INVALID = 0,
+		PIANO_MUSICTYPE_SONG,
+		PIANO_MUSICTYPE_ARTIST,
+	} type;
 } PianoRequestDataCreateStation_t;
 
 typedef struct {
@@ -237,27 +247,66 @@ typedef struct {
 	PianoStation_t *station;
 } PianoRequestDataDeleteSeed_t;
 
+/* pandora error code offset */
+#define PIANO_RET_OFFSET 1024
 typedef enum {
 	PIANO_RET_ERR = 0,
 	PIANO_RET_OK = 1,
-	PIANO_RET_XML_INVALID = 2,
-	PIANO_RET_AUTH_TOKEN_INVALID = 3,
-	PIANO_RET_AUTH_USER_PASSWORD_INVALID = 4,
-	PIANO_RET_CONTINUE_REQUEST = 5,
-	PIANO_RET_NOT_AUTHORIZED = 6,
-	PIANO_RET_PROTOCOL_INCOMPATIBLE = 7,
-	PIANO_RET_READONLY_MODE = 8,
-	PIANO_RET_STATION_CODE_INVALID = 9,
-	PIANO_RET_IP_REJECTED = 10,
-	PIANO_RET_STATION_NONEXISTENT = 11,
-	PIANO_RET_OUT_OF_MEMORY = 12,
-	PIANO_RET_OUT_OF_SYNC = 13,
-	PIANO_RET_PLAYLIST_END = 14,
-	PIANO_RET_QUICKMIX_NOT_PLAYABLE = 15,
-	PIANO_RET_REMOVING_TOO_MANY_SEEDS = 16,
+	PIANO_RET_INVALID_RESPONSE = 2,
+	PIANO_RET_CONTINUE_REQUEST = 3,
+	PIANO_RET_OUT_OF_MEMORY = 4,
+	PIANO_RET_INVALID_LOGIN = 5,
+	PIANO_RET_QUALITY_UNAVAILABLE = 6,
+
+	/* pandora error codes */
+	PIANO_RET_P_INTERNAL = PIANO_RET_OFFSET+0,
+	PIANO_RET_P_API_VERSION_NOT_SUPPORTED = PIANO_RET_OFFSET+11,
+	PIANO_RET_P_BIRTH_YEAR_INVALID = PIANO_RET_OFFSET+1025,
+	PIANO_RET_P_BIRTH_YEAR_TOO_YOUNG = PIANO_RET_OFFSET+1026,
+	PIANO_RET_P_CALL_NOT_ALLOWED = PIANO_RET_OFFSET+1008,
+	PIANO_RET_P_CERTIFICATE_REQUIRED = PIANO_RET_OFFSET+7,
+	PIANO_RET_P_COMPLIMENTARY_PERIOD_ALREADY_IN_USE = PIANO_RET_OFFSET+1007,
+	PIANO_RET_P_DAILY_TRIAL_LIMIT_REACHED = PIANO_RET_OFFSET+1035,
+	PIANO_RET_P_DEVICE_ALREADY_ASSOCIATED_TO_ACCOUNT = PIANO_RET_OFFSET+1014,
+	PIANO_RET_P_DEVICE_DISABLED = PIANO_RET_OFFSET+1034,
+	PIANO_RET_P_DEVICE_MODEL_INVALID = PIANO_RET_OFFSET+1023,
+	PIANO_RET_P_DEVICE_NOT_FOUND = PIANO_RET_OFFSET+1009,
+	PIANO_RET_P_EXPLICIT_PIN_INCORRECT = PIANO_RET_OFFSET+1018,
+	PIANO_RET_P_EXPLICIT_PIN_MALFORMED = PIANO_RET_OFFSET+1020,
+	PIANO_RET_P_INSUFFICIENT_CONNECTIVITY = PIANO_RET_OFFSET+13,
+	PIANO_RET_P_INVALID_AUTH_TOKEN = PIANO_RET_OFFSET+1001,
+	PIANO_RET_P_INVALID_COUNTRY_CODE = PIANO_RET_OFFSET+1027,
+	PIANO_RET_P_INVALID_GENDER = PIANO_RET_OFFSET+1027,
+	PIANO_RET_P_INVALID_PARTNER_LOGIN = PIANO_RET_OFFSET+1002,
+	PIANO_RET_P_INVALID_PASSWORD = PIANO_RET_OFFSET+1012,
+	PIANO_RET_P_INVALID_SPONSOR = PIANO_RET_OFFSET+1036,
+	PIANO_RET_P_INVALID_USERNAME = PIANO_RET_OFFSET+1011,
+	PIANO_RET_P_LICENSING_RESTRICTIONS = PIANO_RET_OFFSET+12,
+	PIANO_RET_P_MAINTENANCE_MODE = PIANO_RET_OFFSET+1,
+	PIANO_RET_P_MAX_STATIONS_REACHED = PIANO_RET_OFFSET+1005,
+	PIANO_RET_P_PARAMETER_MISSING = PIANO_RET_OFFSET+9,
+	PIANO_RET_P_PARAMETER_TYPE_MISMATCH = PIANO_RET_OFFSET+8,
+	PIANO_RET_P_PARAMETER_VALUE_INVALID = PIANO_RET_OFFSET+10,
+	PIANO_RET_P_PARTNER_NOT_AUTHORIZED = PIANO_RET_OFFSET+1010,
+	PIANO_RET_P_READ_ONLY_MODE = PIANO_RET_OFFSET+1000,
+	PIANO_RET_P_SECURE_PROTOCOL_REQUIRED = PIANO_RET_OFFSET+6,
+	PIANO_RET_P_STATION_DOES_NOT_EXIST = PIANO_RET_OFFSET+1006,
+	PIANO_RET_P_UPGRADE_DEVICE_MODEL_INVALID = PIANO_RET_OFFSET+1015,
+	PIANO_RET_P_URL_PARAM_MISSING_AUTH_TOKEN = PIANO_RET_OFFSET+3,
+	PIANO_RET_P_URL_PARAM_MISSING_METHOD = PIANO_RET_OFFSET+2,
+	PIANO_RET_P_URL_PARAM_MISSING_PARTNER_ID = PIANO_RET_OFFSET+4,
+	PIANO_RET_P_URL_PARAM_MISSING_USER_ID = PIANO_RET_OFFSET+5,
+	PIANO_RET_P_USERNAME_ALREADY_EXISTS = PIANO_RET_OFFSET+1013,
+	PIANO_RET_P_USER_ALREADY_USED_TRIAL = PIANO_RET_OFFSET+1037,
+	PIANO_RET_P_LISTENER_NOT_AUTHORIZED = PIANO_RET_OFFSET+1003,
+	PIANO_RET_P_USER_NOT_AUTHORIZED = PIANO_RET_OFFSET+1004,
+	PIANO_RET_P_ZIP_CODE_INVALID = PIANO_RET_OFFSET+1024,
+
 } PianoReturn_t;
 
-void PianoInit (PianoHandle_t *);
+void PianoInit (PianoHandle_t *, const char *,
+		const char *, const char *, const char *,
+		const char *);
 void PianoDestroy (PianoHandle_t *);
 void PianoDestroyPlaylist (PianoSong_t *);
 void PianoDestroySearchResult (PianoSearchResult_t *);

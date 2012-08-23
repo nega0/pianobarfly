@@ -39,6 +39,11 @@
 #include "fly_id3.h"
 #include "ui.h"
 
+/**
+ * Name of the temporary file used in tagging.
+ */
+#define BAR_FLY_TMP_MP3_FILE_NAME "pianobarfly-tmp.mp3"
+
 int BarFlyID3AddCover(struct id3_tag* tag, uint8_t const* cover_art,
 		size_t cover_size, BarSettings_t const* settings)
 {
@@ -228,15 +233,13 @@ int BarFlyID3WriteFile(char const* file_path, struct id3_tag const* tag,
 		BarSettings_t const* settings)
 {
 	int exit_status = 0;
-	int status_int;
+	int status;
 	id3_length_t size1;
 	id3_length_t size2;
 	id3_byte_t* tag_buffer = NULL;
 	FILE* audio_file = NULL;
 	FILE* tmp_file = NULL;
 	uint8_t audio_buffer[BAR_FLY_COPY_BLOCK_SIZE];
-	char tmp_file_path[L_tmpnam];
-	char* junk;
 	size_t read_count;
 	size_t write_count;
 
@@ -286,16 +289,11 @@ int BarFlyID3WriteFile(char const* file_path, struct id3_tag const* tag,
 
 	/*
 	 * Open the tmp file.
-	 *
-	 * Assigning the return value of tmpnam() to a junk pointer to get the
-	 * compiler to be quiet.
 	 */
-	junk = tmpnam(tmp_file_path);
-	junk = junk;
-	tmp_file = fopen(tmp_file_path, "w+b");
+	tmp_file = fopen(BAR_FLY_TMP_MP3_FILE_NAME, "w+b");
 	if (tmp_file == NULL) {
 		BarUiMsg(settings, MSG_ERR, "Could not open the temporary file (%s) "
-				"(%d:%s).\n", tmp_file_path, errno, strerror(errno));
+				"(%d:%s).\n", BAR_FLY_TMP_MP3_FILE_NAME, errno, strerror(errno));
 		goto error;
 	}
 
@@ -305,7 +303,7 @@ int BarFlyID3WriteFile(char const* file_path, struct id3_tag const* tag,
 	write_count = fwrite(tag_buffer, 1, size2, tmp_file);
 	if (write_count != size2) {
 		BarUiMsg(settings, MSG_ERR, "Could not write the tag to the file (%s) "
-				"(%d:%s).\n", tmp_file_path, errno, strerror(errno));
+				"(%d:%s).\n", BAR_FLY_TMP_MP3_FILE_NAME, errno, strerror(errno));
 		goto error;
 	}
 
@@ -326,7 +324,7 @@ int BarFlyID3WriteFile(char const* file_path, struct id3_tag const* tag,
 		write_count = fwrite(audio_buffer, 1, read_count, tmp_file);
 		if (write_count != read_count) {
 			BarUiMsg(settings, MSG_ERR, "Failed to write to the tmp file "
-					"(%s).\n", tmp_file_path);
+					"(%s).\n", BAR_FLY_TMP_MP3_FILE_NAME);
 			goto error;
 		}
 	}
@@ -344,8 +342,8 @@ int BarFlyID3WriteFile(char const* file_path, struct id3_tag const* tag,
 	/*
 	 * Overwrite the audio file with the tmp file.
 	 */
-	status_int = rename(tmp_file_path, file_path);
-	if (status_int != 0) {
+	status = rename(BAR_FLY_TMP_MP3_FILE_NAME, file_path);
+	if (status != 0) {
 		BarUiMsg(settings, MSG_ERR, "Could not overwrite the audio file "
 				"(%d:%s).\n", errno, strerror(errno));
 		goto error;
@@ -357,7 +355,7 @@ error:
 	/*
 	 * Delete the tmp file if it exists.
 	 */
-	unlink(tmp_file_path);
+	unlink(BAR_FLY_TMP_MP3_FILE_NAME);
 
 	exit_status = -1;
 

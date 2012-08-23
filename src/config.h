@@ -4,6 +4,6 @@
 /* package name */
 #define PACKAGE "pianobarfly"
 
-#define VERSION "2011.11.12"
+#define VERSION "2012.06.24-dev"
 
 #endif /* _CONFIG_H */
