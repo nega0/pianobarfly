@@ -1,0 +1,112 @@
+Release 2012.06.24
+
+- Removed setting audio_format, added audio_quality. libfaad (aac) is now required,
+  libmad (mp3) is optional (for Pandora One users)
+- Fix thumbs up/down
+- Fix race condition
+- Fix custom key bindings
+- Improve error messages
+- Minor bugfixes
+
+Release 2012.05.06
+
+- Move to JSON API (v5), see http://pan-do-ra-api.wikia.com/
+- New dependencies: json-c and libgcrypt
+- Low-bitrate AAC audio support
+- Seed suggestions and force_tls config setting not supported any more
+- Fix race condition
+- Minor bugfixes and code cleanup
+
+Release 2012.04.24
+
+- Fix format string crash
+- Fix sync response parser
+- Fix possible stdin close on error
+- Fix undefined behavior (mutex unlock)
+- Use TLS for every request with new setting force_tls
+- New error codes EXCESSIVE_ACTIVITY and DAILY_SKIP_LIMIT_REACHED
+- Autoselect last remaining item of filtered list, disable with autoselect = 0
+- Warn if control fifo is not a fifo
+- Code cleanup
+
+Release 2012.01.10
+
+- Use TLS for login only
+- waitress: HTTP/1.1 compliant CONNECT
+- Minor fixes/code cleanup
+
+Release 2011.12.11
+
+- waitress: Replaced ca-bundle with fingerprint check
+- waitress: Support GnuTLS <= 2.10.0
+- waitress: Proxy authorization added again
+- piano: Sync authenticateListener API call with Pandora
+- Fix DYNLINK option
+- Code cleanup, minor UI improvements
+
+Release 2011.11.11
+
+- libwaitress rewrite (supports TLS now)
+- new dependency GnuTLS >= 2.10.0
+
+Release 2011.11.09
+
+- Protocol version bump (v33)
+- Minor bugfixes
+
+Release 2011.09.22
+
+- Protocol version bump (v32)
+- Customizeable list format, %@ format string and fifo path
+- Fix quickmix station filtering
+- Add quickmix station toggling
+- Bookmarking will correctly report success again
+- OS X and FreeBSD Makefile fixes
+- Other minor fixes/improvements
+
+Release 2011.07.09
+
+- Protocol version bump (v31)
+- Fix quickmix
+- Customizeable format strings
+- Basic proxy authentication
+
+Release 2011.04.27
+
+- Protocol version bump (v30)
+- Minor fixes/improvements
+
+Release 2011.04.10
+
+- Keybindings can be disabled
+- Expose login/fetch stations events and songDetailUrl to eventcmd
+- New eventcmd/lastfm scrobbling scripts
+- Support for deleting seeds and feedback
+- Filterable station/artist/song lists
+- Bugfixes/rewrites
+
+Release 2011.01.24
+
+- Temporary banning song via history
+- Software volume control
+- Extended eventcmd api (includes station list now)
+- Custom loved/banned icons in upcoming songs/history
+- Fix playback on big-endian machines
+- Fix DISABLE_MAD/FAAD make switches
+- Several bugfixes, code cleanup and refactoring
+
+Release 2010.11.06
+
+- XMLRLC api version bump (v29)
+- Automatic reauthentication
+- Minor bugfixes/code cleanup
+- Documentation fix
+
+Release 2010.10.07
+
+- XMLRPC api version bump (v28)
+
+Release 2010.08.21
+
+- First "official" release
+
