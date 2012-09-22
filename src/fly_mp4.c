@@ -2035,6 +2035,11 @@ int BarFlyMp4TagWrite(BarFlyMp4Tag_t* tag, BarSettings_t const* settings)
 	goto end;
 
 error:
+	/*
+	 * Delete the tmp file if it exists.
+	 */
+	unlink(tmp_file_path);
+
 	exit_status = -1;
 
 end:

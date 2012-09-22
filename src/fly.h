@@ -212,5 +212,3 @@ int BarFlyTag(BarFly_t* fly, BarSettings_t const* settings);
 int BarFlyWrite(BarFly_t* fly, void const* data, size_t data_size);
 
 #endif /* _FLY_H */
-
-// vim: set noexpandtab:

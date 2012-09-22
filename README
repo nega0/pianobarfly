@@ -11,3 +11,10 @@ pianobarfly is a console client for the personalized web radio pandora
 - last.fm scrobbling support (external application)
 - proxy support for listeners outside the USA
 - auto-rips streams to audio files
+
+The sourcecode for pianobar can be downloaded at:
+	http://github.com/PromyLOPh/pianobar/
+or,
+	http://6xq.net/projects/pianobar/
+The sourcecode for pianobarfly can be downloaded at:
+	http://github.com/ghuntley/pianobarfly

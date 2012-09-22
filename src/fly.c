@@ -269,14 +269,14 @@ static int _BarFlyFetchURL(char const* url, uint8_t** buffer, size_t* size,
 	 */
 	status = WaitressSetUrl(&fly_waith, url);
 	if (status != 1) {
-		BarUiMsg(settings, MSG_DEBUG, "Invalid URL (%s).\n", url);
+		BarUiMsg(settings, MSG_INFO, "Invalid URL (%s).\n", url);
 		goto error;
 	}
 
 	status_waith = WaitressFetchBufEx(&fly_waith, (char**)&tmp_buffer,
 			&tmp_size);
 	if ((status_waith != WAITRESS_RET_OK) || (tmp_buffer == NULL)) {
-		BarUiMsg(settings, MSG_DEBUG, "Failed to fetch the URL contents "
+		BarUiMsg(settings, MSG_INFO, "Failed to fetch the URL contents "
 				"(url = %s, waitress status = %d).\n", url, status_waith);
 		goto error;
 	}
@@ -316,7 +316,7 @@ static int _BarFlyFileDelete(BarFly_t const* fly,
 		/*
 		 * Delete the file.
 		 */
-		BarUiMsg(settings, MSG_DEBUG, "Deleting partially recorded file (%s).\n",
+		BarUiMsg(settings, MSG_INFO, "Deleting partially recorded file (%s).\n",
 				fly->audio_file_path);
 		status = unlink(fly->audio_file_path);
 		if (status != 0) {
@@ -406,7 +406,6 @@ static char* _BarFlyFileGetPath(char const* artist, char const* album,
 
 		#ifdef ENABLE_MAD
 		case PIANO_AF_MP3:
-		case PIANO_AF_MP3_HI:
 			extension = ".mp3";
 			break;
 		#endif
@@ -576,7 +575,7 @@ static int _BarFlyFileOpen(FILE** file, char const* path,
 	 */
 	tmp_file = _BarFlyFileOpenStream(path, "wb");
 	if ((tmp_file == NULL) && (errno == EEXIST)) {
-		BarUiMsg(settings, MSG_DEBUG, "The audio file already exists. It will "
+		BarUiMsg(settings, MSG_INFO, "The audio file already exists. It will "
 				"not be recorded (%s).\n", path);
 		exit_status = -2;
 		goto error;
@@ -724,7 +723,7 @@ static char* _BarFlyParseCoverArtURL(char const* html,
 	status = regexec(&regex_cover, html, MATCH_COUNT, cover_match, 0);
 	if (status != 0) {
 		regerror(status, &regex_cover, error_msg, ERROR_MSG_SIZE);
-		BarUiMsg(settings, MSG_DEBUG, "The cover art was not included in the "
+		BarUiMsg(settings, MSG_INFO, "The cover art was not included in the "
 				"album detail page (%d:%s).\n", status, error_msg);
 		goto error;
 	}
@@ -746,7 +745,7 @@ static char* _BarFlyParseCoverArtURL(char const* html,
 	 * albums list could also use this image.
 	 */
 	if (strstr(url, "no_album_art.jpg") != NULL) {
-		BarUiMsg(settings, MSG_DEBUG, "This album does not have cover art.\n");
+		BarUiMsg(settings, MSG_INFO, "This album does not have cover art.\n");
 		goto error;
 	}
 
@@ -857,7 +856,7 @@ static int _BarFlyParseTrackDisc(char const* title, char const* album_xml,
 	status = regexec(&regex_track, album_xml, MATCH_COUNT, match, 0);
 	if (status != 0) {
 		regerror(status, &regex_track, error_msg, ERROR_MSG_SIZE);
-		BarUiMsg(settings, MSG_DEBUG, "The track and disc numbers were not "
+		BarUiMsg(settings, MSG_INFO, "The track and disc numbers were not "
 				"included in the album explorer page (%d:%s).\n", status,
 				error_msg);
 		goto error;
@@ -934,7 +933,7 @@ static int _BarFlyParseYear(char const* album_html, short unsigned* year,
 	status = regexec(&regex_year, album_html, MATCH_COUNT, match, 0);
 	if (status != 0) {
 		regerror(status, &regex_year, error_msg, ERROR_MSG_SIZE);
-		BarUiMsg(settings, MSG_DEBUG, "The year was not included in the album "
+		BarUiMsg(settings, MSG_INFO, "The year was not included in the album "
 				"detail page (%d:%s).\n", status, error_msg);
 		goto error;
 	}
@@ -1231,7 +1230,7 @@ static int _BarFlyTagWrite(BarFly_t const* fly, BarSettings_t const* settings)
 		status = _BarFlyTagFetchCover(&cover_art, &cover_size,
 				fly->cover_art_url, settings);
 		if (status != 0) {
-			BarUiMsg(settings, MSG_DEBUG, "The cover art will not be addded to "
+			BarUiMsg(settings, MSG_INFO, "The cover art will not be addded to "
 					"the tag.\n");
 			exit_status = -1;
 		}
@@ -1246,7 +1245,6 @@ static int _BarFlyTagWrite(BarFly_t const* fly, BarSettings_t const* settings)
 
 		#if defined ENABLE_MAD && defined ENABLE_ID3TAG
 		case PIANO_AF_MP3:
-		case PIANO_AF_MP3_HI:
 			status = _BarFlyTagID3Write(fly, cover_art, cover_size, settings);
 			break;
 		#endif
@@ -1256,7 +1254,7 @@ static int _BarFlyTagWrite(BarFly_t const* fly, BarSettings_t const* settings)
 			 * If the taging library was not enabled for the audio format being
 			 * played just error out.  Don't report an error.
 			 */
-			BarUiMsg(settings, MSG_DEBUG, "The file was not tagged since the"
+			BarUiMsg(settings, MSG_INFO, "The file was not tagged since the"
 					"tagging library was not linked in.\n");
 			goto error;
 			break;
@@ -1481,7 +1479,7 @@ int BarFlyOpen(BarFly_t* fly, PianoSong_t const* song,
 
 	xml_pos = strstr(song->songExplorerUrl, XML_STRING);
 	if (xml_pos == NULL) {
-		BarUiMsg(settings, MSG_DEBUG, "The song explorer URL did not contain "
+		BarUiMsg(settings, MSG_INFO, "The song explorer URL did not contain "
 				"the expected \"/xml/\" substring.  The cover art will not be "
 				"added to the tag.\n");
 		exit_status = -1;
@@ -1492,7 +1490,7 @@ int BarFlyOpen(BarFly_t* fly, PianoSong_t const* song,
 				(int)(xml_pos - song->songExplorerUrl), song->songExplorerUrl,
 				(int)(question_pos - xml_pos) - xml_len, xml_pos + xml_len);
 		if (status == -1) {
-			BarUiMsg(settings, MSG_DEBUG, "Error copying the song content URL.  "
+			BarUiMsg(settings, MSG_INFO, "Error copying the song content URL.  "
 					"The cover art will not be added to the tag.  (%d:%s)\n",
 					errno, strerror(errno));
 			exit_status = -1;
@@ -1502,7 +1500,7 @@ int BarFlyOpen(BarFly_t* fly, PianoSong_t const* song,
 			status = _BarFlyFetchURL(song_content_url, (uint8_t**)&buffer, NULL,
 						settings);
 			if (status != 0) {
-				BarUiMsg(settings, MSG_DEBUG, "Couldn't get the song content "
+				BarUiMsg(settings, MSG_INFO, "Couldn't get the song content "
 						"page.  The cover art will not be added to the tag.\n");
 				exit_status = -1;
 			}
@@ -1511,7 +1509,7 @@ int BarFlyOpen(BarFly_t* fly, PianoSong_t const* song,
 //				status = _BarFlyParseYear(album_buf, &output_fly.year,
 //						settings);
 //				if (status != 0) {
-//					BarUiMsg(settings, MSG_DEBUG, "The album release year will "
+//					BarUiMsg(settings, MSG_INFO, "The album release year will "
 //							"not be added to the tag.\n");
 //					exit_status = -1;
 //				}
@@ -1519,7 +1517,7 @@ int BarFlyOpen(BarFly_t* fly, PianoSong_t const* song,
 				output_fly.cover_art_url = _BarFlyParseCoverArtURL(buffer,
 						settings);
 				if (output_fly.cover_art_url == NULL) {
-					BarUiMsg(settings, MSG_DEBUG, "The cover art will not be "
+					BarUiMsg(settings, MSG_INFO, "The cover art will not be "
 							"addded to the tag.\n");
 					exit_status = -1;
 				}
@@ -1536,7 +1534,7 @@ int BarFlyOpen(BarFly_t* fly, PianoSong_t const* song,
 	status = _BarFlyFetchURL(song->albumExplorerUrl, (uint8_t**)&buffer,
 			NULL, settings);
 	if (status != 0) {
-		BarUiMsg(settings, MSG_DEBUG, "Couldn't get the album explorer page.  "
+		BarUiMsg(settings, MSG_INFO, "Couldn't get the album explorer page.  "
 				"The track and disc numbers will not be added to the tag.\n");
 		exit_status = -1;
 	}
@@ -1545,7 +1543,7 @@ int BarFlyOpen(BarFly_t* fly, PianoSong_t const* song,
 		status = _BarFlyParseTrackDisc(song->title, buffer,
 				&output_fly.track, &output_fly.disc, settings);
 		if (status != 0) {
-			BarUiMsg(settings, MSG_DEBUG, "The track and disc numbers will not "
+			BarUiMsg(settings, MSG_INFO, "The track and disc numbers will not "
 					"be added to the tag.\n");
 			exit_status = -1;
 		}
