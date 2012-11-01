@@ -224,6 +224,22 @@ PianoStation_t *PianoFindStationById (PianoStation_t *stations,
 	return NULL;
 }
 
+/*	get station from list by name
+ *	@param search here
+ *	@param search for this
+ *	@return the first station structure matching the given name
+ */
+PianoStation_t *PianoFindStationByName (PianoStation_t *stations,
+		const char *searchStation) {
+	while (stations != NULL) {
+		if (strcmp (stations->name, searchStation) == 0) {
+			return stations;
+		}
+		stations = stations->next;
+	}
+	return NULL;
+}
+
 /*	convert return value to human-readable string
  *	@param enum
  *	@return error string
