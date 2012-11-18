@@ -39,6 +39,7 @@ THE SOFTWARE.
 #include <poll.h>
 #include <errno.h>
 #include <assert.h>
+#include <stdint.h>
 
 #include <gnutls/x509.h>
 
@@ -592,7 +593,11 @@ static bool WaitressFormatAuthorization (WaitressHandle_t *waith,
 static const char *WaitressDefaultPort (const WaitressUrl_t * const url) {
 	assert (url != NULL);
 
-	return url->port == NULL ? (url->tls ? "443" : "80") : url->port;
+	if (url->tls) {
+		return url->tlsPort == NULL ? "443" : url->tlsPort;
+	} else {
+		return url->port == NULL ? "80" : url->port;
+	}
 }
 
 /*	get line from string

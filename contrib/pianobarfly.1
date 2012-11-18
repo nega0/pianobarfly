@@ -115,6 +115,7 @@ Skip current song.
 
 .TP
 .B act_songpause = p
+.TQ
 .B act_songpause2 = <Space>
 Pause/Continue
 
@@ -210,7 +211,7 @@ or the key you defined in
 Icon for banned songs.
 
 .TP
-.B control_proxy = http://host:port/
+.B control_proxy = http://user:password@host:port/
 Non-american users need a proxy to use pandora.com. Only the xmlrpc interface
 will use this proxy. The music is streamed directly.
 
@@ -327,12 +328,21 @@ Icon for loved songs.
 Your pandora.com password. Plain-text.
 
 .TP
-.B proxy = http://host:port/
+.B password_command = gpg --decrypt ~/password
+Use output of command as password. This setting is overridden by specifying a
+password with
+.B password.
+
+.TP
+.B proxy = http://user:password@host:port/
 Use a http proxy. Note that this setting overrides the http_proxy environment
-variable.
+variable. Only "Basic" http authentication is supported.
 
 .TP
 .B rpc_host = tuner.pandora.com
+
+.TP
+.B rpc_tls_port = 443
 
 .TP
 .B sort = {name_az, name_za, quickmix_01_name_az, quickmix_01_name_za, quickmix_10_name_az, quickmix_10_name_za}
@@ -387,8 +397,8 @@ Another example:
 can report certain "events" to an external application (see
 .B CONFIGURATION
 ). This application is started with the event name as it's first argument. More
-information (artist, title, album, stationName, error code, error description,
-song length in milliseconds, rating, album art url) is supplied through stdin.
+information like error code and description, was well as song information
+related to the current event, is supplied through stdin.
 
 Currently supported events are: artistbookmark, songban, songbookmark,
 songexplain, songfinish, songlove, songmove, songshelf, songstart,
