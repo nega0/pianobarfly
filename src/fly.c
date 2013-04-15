@@ -51,7 +51,7 @@
 #include "ui.h"
 
 /**
- * Barfly Waitress handle used to fetch the album cover and year.
+ * Barfly Waitress handle used to fetch the album cover.
  */
 static WaitressHandle_t fly_waith;
 
@@ -94,7 +94,6 @@ static int _BarFlyFileDelete(BarFly_t const* fly,
  * @param artist A string containing the artist.
  * @param album A string containing the album.
  * @param title A string containing the title.
- * @param year The year the song was released.
  * @param track The track number of the song.
  * @param disc The disc number of the song.
  * @param audio_format The audio format of the song.
@@ -103,9 +102,8 @@ static int _BarFlyFileDelete(BarFly_t const* fly,
  * freed when done.
  */
 static char* _BarFlyFileGetPath(char const* artist, char const* album,
-		char const* title, short unsigned year, short unsigned track,
-		short unsigned disc, PianoAudioFormat_t audio_format,
-		BarSettings_t const* settings);
+		char const* title, short unsigned track, short unsigned disc,
+		PianoAudioFormat_t audio_format, BarSettings_t const* settings);
 
 /**
  * Opens a file stream for writing.  If the file already exists the stream will
@@ -151,18 +149,6 @@ static size_t _BarFlyNameTranslate(char* dest, char const* src, size_t n,
 		BarSettings_t const* settings);
 
 /**
- * Parses out the cover art URL from the song content HTML.
- *
- * @param html A buffer containing the song content HTML.
- * @param settings Pointer to the application settings structure.
- * @return A pointer to a string containing the URL will be returned if it was
- * parsed successfully.  Otherwise NULL is returned.  The returned string will
- * need to be freed.
- */
-static char* _BarFlyParseCoverArtURL(char const* html,
-		BarSettings_t const* settings);
-
-/**
  * Parses out the track and disc numbers from the album explorer XML.  In the
  * event of an error the track_num and disc_num variables will not be modified.
  *
@@ -178,18 +164,6 @@ static char* _BarFlyParseCoverArtURL(char const* html,
 static int _BarFlyParseTrackDisc(char const* title, char const* album_xml,
 		short unsigned* track_num, short unsigned* disc_num,
 		BarSettings_t const* settings);
-
-/**
- * Parses out the release year from the album detail HTML.
- *
- * @param album_html A buffer containing the album detail HTML.
- * @param year A pointer to a variable to be populated with the year.
- * @param settings Pointer to the application settings structure.
- * @return If the year was obtained successfully 0 is returned.  Otherwise -1 is
- * returned.
- */
-//static int _BarFlyParseYear(char const* album_html, short unsigned* year,
-//		BarSettings_t const* settings);
 
 /**
  * Get the large cover art image from Pandora.
@@ -367,9 +341,8 @@ end:
 }
 
 static char* _BarFlyFileGetPath(char const* artist, char const* album,
-		char const* title, short unsigned year, short unsigned track,
-		short unsigned disc, PianoAudioFormat_t audio_format,
-		BarSettings_t const* settings)
+		char const* title, short unsigned track, short unsigned disc,
+		PianoAudioFormat_t audio_format, BarSettings_t const* settings)
 {
 	char* path = NULL;
 	size_t path_length;
@@ -443,9 +416,6 @@ static char* _BarFlyFileGetPath(char const* artist, char const* album,
 			} else if (strncmp("%title", file_pattern_ptr, 6) == 0) {
 				path_length += strlen(path_title);
 				file_pattern_ptr += 6;
-			} else if (strncmp("%year", file_pattern_ptr, 5) == 0) {
-				path_length += snprintf(NULL, 0, "%hu", year);
-				file_pattern_ptr += 5;
 			} else if (strncmp("%track", file_pattern_ptr, 6) == 0) {
 				path_length += snprintf(NULL, 0, "%02hu", track);
 				file_pattern_ptr += 6;
@@ -500,10 +470,6 @@ static char* _BarFlyFileGetPath(char const* artist, char const* album,
 				strcpy(path_ptr, path_title);
 				file_pattern_ptr += 6;
 				path_ptr += strlen(path_title);
-			} else if (strncmp("%year", file_pattern_ptr, 5) == 0) {
-				sprintf(path_ptr, "%hu", year);
-				file_pattern_ptr += 5;
-				path_ptr += snprintf(NULL, 0, "%hu", year);
 			} else if (strncmp("%track", file_pattern_ptr, 6) == 0) {
 				sprintf(path_ptr, "%02hu", track);
 				file_pattern_ptr += 6;
@@ -692,77 +658,6 @@ static size_t _BarFlyNameTranslate(char* dest, char const* src, size_t n,
 	return i2;
 }
 
-static char* _BarFlyParseCoverArtURL(char const* html,
-		BarSettings_t const* settings)
-{
-	size_t const MATCH_COUNT = 2;
-	size_t const ERROR_MSG_SIZE = 100;
-
-	char* url = NULL;
-	int status;
-	regex_t regex_cover;
-	regmatch_t cover_match[MATCH_COUNT];
-	char error_msg[ERROR_MSG_SIZE];
-
-	assert(html != NULL);
-
-	/*
-	 * Search the html page to find the cover art URL.
-	 */
-	memset(&regex_cover, 0, sizeof(regex_cover));
-	status = regcomp(&regex_cover,
-			"src *= *\"([^\"]+)\"[^>]*class *= *\"img_cvr\"", REG_EXTENDED);
-	if (status != 0) {
-		regerror(status, &regex_cover, error_msg, ERROR_MSG_SIZE);
-		BarUiMsg(settings, MSG_ERR, "Failed to compile the cover at regex "
-				"(%d:%s).\n", status, error_msg);
-		goto error;
-	}
-
-	memset(cover_match, 0, sizeof(cover_match));
-	status = regexec(&regex_cover, html, MATCH_COUNT, cover_match, 0);
-	if (status != 0) {
-		regerror(status, &regex_cover, error_msg, ERROR_MSG_SIZE);
-		BarUiMsg(settings, MSG_INFO, "The cover art was not included in the "
-				"album detail page (%d:%s).\n", status, error_msg);
-		goto error;
-	}
-
-	/*
-	 * Extract the cover art URL.
-	 */
-	url = strndup(html + cover_match[1].rm_so,
-			cover_match[1].rm_eo - cover_match[1].rm_so);
-	if (url == NULL) {
-		BarUiMsg(settings, MSG_ERR, "Failed to copy the cover art url "
-				"(%d:%s).\n", errno, strerror(errno));
-		goto error;
-	}
-
-	/*
-	 * Make sure this isn't the no_album_art.jpg image.  This check must be
-	 * done to only the URL itself and not the whole HTML page since the similar
-	 * albums list could also use this image.
-	 */
-	if (strstr(url, "no_album_art.jpg") != NULL) {
-		BarUiMsg(settings, MSG_INFO, "This album does not have cover art.\n");
-		goto error;
-	}
-
-	goto end;
-
-error:
-	if (url != NULL) {
-		free(url);
-		url = NULL;
-	}
-
-end:
-	regfree(&regex_cover);
-
-	return url;
-}
-
 static int _BarFlyParseTrackDisc(char const* title, char const* album_xml,
 		short unsigned* track_num, short unsigned* disc_num,
 		BarSettings_t const* settings)
@@ -900,66 +795,6 @@ end:
 	return exit_status;
 }
 
-#if 0
-static int _BarFlyParseYear(char const* album_html, short unsigned* year,
-		BarSettings_t const* settings)
-{
-	size_t const MATCH_COUNT = 2;
-	size_t const ERROR_MSG_SIZE = 100;
-
-	int exit_status = 0;
-	int status;
-	regex_t regex_year;
-	regmatch_t match[MATCH_COUNT];
-	char error_msg[ERROR_MSG_SIZE];
-
-	assert(album_html != NULL);
-	assert(year != NULL);
-
-	/*
-	 * Compile and execute the regular expression to get the year.
-	 */
-	memset(&regex_year, 0, sizeof(regex_year));
-	status = regcomp(&regex_year, "class *= *\"release_year\"[^0-9]*([0-9]{4})",
-			REG_EXTENDED);
-	if (status != 0) {
-		regerror(status, &regex_year, error_msg, ERROR_MSG_SIZE);
-		BarUiMsg(settings, MSG_ERR, "Failed to compile the regex to get the "
-				"year (%d:%s).\n", status, error_msg);
-		goto error;
-	}
-
-	memset(match, 0, sizeof(match));
-	status = regexec(&regex_year, album_html, MATCH_COUNT, match, 0);
-	if (status != 0) {
-		regerror(status, &regex_year, error_msg, ERROR_MSG_SIZE);
-		BarUiMsg(settings, MSG_INFO, "The year was not included in the album "
-				"detail page (%d:%s).\n", status, error_msg);
-		goto error;
-	}
-
-	/*
-	 * Copy the year.
-	 */
-	status = sscanf(album_html + match[1].rm_so, "%4hu", year);
-	if (status != 1) {
-		BarUiMsg(settings, MSG_ERR, "Error convertig the year from a string "
-				"(%d:%s).\n", errno, strerror(errno));
-		goto error;
-	}
-
-	goto end;
-
-error:
-	exit_status = -1;
-
-end:
-	regfree(&regex_year);
-
-	return exit_status;
-}
-#endif
-
 static int _BarFlyTagFetchCover(uint8_t** cover_art, size_t* cover_size,
 		char const* url, BarSettings_t const* settings)
 {
@@ -1051,16 +886,6 @@ static int _BarFlyTagID3Write(BarFly_t const* fly, uint8_t const* cover_art,
 	if (status != 0) {
 		BarUiMsg(settings, MSG_ERR, "Failed to write title to tag.\n");
 		goto error;
-	}
-
-	if (fly->year != 0) {
-		snprintf(buffer, BUFFER_SIZE, "%hu", fly->year);
-		buffer[BUFFER_SIZE - 1] = '\0';
-		status = BarFlyID3AddFrame(tag, ID3_FRAME_YEAR, buffer, settings);
-		if (status != 0) {
-			BarUiMsg(settings, MSG_ERR, "Failed to write year to tag.\n");
-			goto error;
-		}
 	}
 
 	if (fly->track != 0) {
@@ -1155,14 +980,6 @@ static int _BarFlyTagMp4Write(BarFly_t const* fly, uint8_t const* cover_art,
 	if (status != 0) {
 		BarUiMsg(settings, MSG_ERR, "Error adding the title to the tag.\n");
 		goto error;
-	}
-
-	if (fly->year != 0) {
-		status = BarFlyMp4TagAddYear(tag, fly->year, settings);
-		if (status != 0) {
-			BarUiMsg(settings, MSG_ERR, "Error adding the year to the tag.\n");
-			goto error;
-		}
 	}
 
 	if (fly->track != 0) {
@@ -1457,7 +1274,7 @@ int BarFlyOpen(BarFly_t* fly, PianoSong_t const* song,
 	output_fly.status = NOT_RECORDING;
 
 	/*
-	 * Copy the artist, album, title, and audio format.
+	 * Copy the artist, album, title, audio format, and cover art URL.
 	 */
 	strncpy(output_fly.artist, song->artist, BAR_FLY_NAME_LENGTH);
 	output_fly.artist[BAR_FLY_NAME_LENGTH - 1] = '\0';
@@ -1467,65 +1284,12 @@ int BarFlyOpen(BarFly_t* fly, PianoSong_t const* song,
 	output_fly.title[BAR_FLY_NAME_LENGTH - 1] = '\0';
 	output_fly.audio_format = song->audioFormat;
 
-	/*
-	 * Get the song content URL and extract the cover art URL.  The song
-	 * content URL is the same as the song explorer URL except that "/xml" is
-	 * replaced with "/content/".
-	 */
-	question_pos = strchr(song->songExplorerUrl, '?');
-	if (question_pos == NULL) {
-		question_pos = song->songExplorerUrl + strlen(song->songExplorerUrl);
-	}
-
-	xml_pos = strstr(song->songExplorerUrl, XML_STRING);
-	if (xml_pos == NULL) {
-		BarUiMsg(settings, MSG_INFO, "The song explorer URL did not contain "
-				"the expected \"/xml/\" substring.  The cover art will not be "
-				"added to the tag.\n");
-		exit_status = -1;
-	}
-
-	if (xml_pos != NULL) {
-		status = BarFlyasprintf(&song_content_url, "%.*s/content/%.*s",
-				(int)(xml_pos - song->songExplorerUrl), song->songExplorerUrl,
-				(int)(question_pos - xml_pos) - xml_len, xml_pos + xml_len);
-		if (status == -1) {
-			BarUiMsg(settings, MSG_INFO, "Error copying the song content URL.  "
-					"The cover art will not be added to the tag.  (%d:%s)\n",
-					errno, strerror(errno));
+	output_fly.cover_art_url = strdup(song->coverArt);
+	if (output_fly.cover_art_url == NULL) {
+		BarUiMsg(settings, MSG_INFO, "Error copying cover art URL.  The cover "
+				"art will not be added to the tag. (%d:%s)\n", errno,
+				strerror(errno));
 			exit_status = -1;
-		}
-
-		if (song_content_url != NULL) {
-			status = _BarFlyFetchURL(song_content_url, (uint8_t**)&buffer, NULL,
-						settings);
-			if (status != 0) {
-				BarUiMsg(settings, MSG_INFO, "Couldn't get the song content "
-						"page.  The cover art will not be added to the tag.\n");
-				exit_status = -1;
-			}
-
-			if (buffer != NULL) {
-//				status = _BarFlyParseYear(album_buf, &output_fly.year,
-//						settings);
-//				if (status != 0) {
-//					BarUiMsg(settings, MSG_INFO, "The album release year will "
-//							"not be added to the tag.\n");
-//					exit_status = -1;
-//				}
-
-				output_fly.cover_art_url = _BarFlyParseCoverArtURL(buffer,
-						settings);
-				if (output_fly.cover_art_url == NULL) {
-					BarUiMsg(settings, MSG_INFO, "The cover art will not be "
-							"addded to the tag.\n");
-					exit_status = -1;
-				}
-
-				free(buffer);
-				buffer = NULL;
-			}
-		}
 	}
 
 	/*
@@ -1553,7 +1317,7 @@ int BarFlyOpen(BarFly_t* fly, PianoSong_t const* song,
 	 * Get the path to the file.
 	 */
 	output_fly.audio_file_path = _BarFlyFileGetPath(song->artist, song->album,
-			song->title, output_fly.year, output_fly.track, output_fly.disc,
+			song->title, output_fly.track, output_fly.disc,
 			song->audioFormat, settings);
 	if (output_fly.audio_file_path == NULL) {
 		goto error;

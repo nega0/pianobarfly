@@ -102,11 +102,6 @@ typedef struct BarFly {
 	char title[BAR_FLY_NAME_LENGTH];
 
 	/**
-	 * The year.  A year of 0 means the year could not be found.
-	 */
-	short unsigned year;
-
-	/**
 	 * The track number.  A track of 0 means the track number could not be
 	 * found.
 	 */
