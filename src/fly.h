@@ -121,6 +121,7 @@ typedef struct BarFly {
 	 * The current status of the recording.
 	 */
 	BarFlyStatus_t status;
+	char stationName[BAR_FLY_NAME_LENGTH];
 } BarFly_t;
 
 

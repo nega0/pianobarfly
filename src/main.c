@@ -269,6 +269,7 @@ static void BarMainStartPlayback (BarApp_t *app, pthread_t *playerThread) {
 		app->player.scale = BarPlayerCalcScale (app->player.gain + app->settings.volume);
 		app->player.audioFormat = app->playlist->audioFormat;
 		app->player.settings = &app->settings;
+		strcpy(app->player.fly.stationName, app->curStation->name);
 		pthread_mutex_init (&app->player.pauseMutex, NULL);
 
 		/* Open the audio file. */

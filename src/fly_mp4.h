@@ -51,6 +51,19 @@ struct BarFlyMp4Tag;
 typedef struct BarFlyMp4Tag BarFlyMp4Tag_t;
 
 /**
+ * Adds a grouping to the tag.  Do not call this function more than once.  Calli
+ * it a second time will add a second grouping tag and possibly corrupt the file
+ *
+ * @param tag A pointer to the tag.
+ * @param grouping A string containing the grouping name.
+ * @param settings A pointer to the application's settings structure.
+ * @return If the album is successfully added to the tag 0 is returned
+ * otherwise -1 is returned.
+ */
+int BarFlyMp4TagAddGrouping(BarFlyMp4Tag_t* tag, char const* grouping,
+		BarSettings_t const* settings);
+
+/**
  * Adds an album to the tag.  Do not call this function more than once.  Calling
  * it a second time will add a second album tag and possibly corrupt the file.
  *

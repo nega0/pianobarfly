@@ -1006,6 +1006,14 @@ static int _BarFlyTagMp4Write(BarFly_t const* fly, uint8_t const* cover_art,
 		}
 	}
 
+	BarUiMsg(settings, MSG_INFO, "Adding the grouping to the tag.\n");
+	printf("%s(%i): stationName = %s!\n",__FILE__,__LINE__,fly->stationName);
+	status = BarFlyMp4TagAddGrouping(tag, fly->stationName, settings);
+	if (status != 0) {
+		BarUiMsg(settings, MSG_ERR, "Error adding the grouping to the tag.\n");
+		goto error;
+	}
+
 	/*
 	 * Write the tag to the file.
 	 */
@@ -1283,6 +1291,8 @@ int BarFlyOpen(BarFly_t* fly, PianoSong_t const* song,
 	strncpy(output_fly.title, song->title, BAR_FLY_NAME_LENGTH);
 	output_fly.title[BAR_FLY_NAME_LENGTH - 1] = '\0';
 	output_fly.audio_format = song->audioFormat;
+	strncpy(output_fly.stationName, fly->stationName, strlen(fly->stationName) + 1);
+	output_fly.stationName[BAR_FLY_NAME_LENGTH - 1] = '\0';
 
 	output_fly.cover_art_url = strdup(song->coverArt);
 	if (output_fly.cover_art_url == NULL) {

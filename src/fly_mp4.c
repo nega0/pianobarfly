@@ -138,6 +138,12 @@
 #define BAR_FLY_MP4_ATOM_YEAR_CLASS {0x00, 0x00, 0x00, 0x01}
 
 /**
+ *
+ * The grouping atom's class.
+ */
+#define BAR_FLY_MP4_ATOM_GROUPING_CLASS {0x00, 0x00, 0x00, 0x01}
+
+/**
  * The MP4 atom structure.  This structure represents a single atom in an MP4 
  * file.
  */
@@ -1541,6 +1547,35 @@ end:
 	return exit_status;
 }
 
+int BarFlyMp4TagAddGrouping(BarFlyMp4Tag_t* tag, char const* grouping,
+		BarSettings_t const* settings)
+{
+	uint8_t GROUPING_CLASS[] = BAR_FLY_MP4_ATOM_GROUPING_CLASS;
+
+	int exit_status = 0;
+	int status;
+
+	assert(tag != NULL);
+	assert(grouping != NULL);
+	assert(settings != NULL);
+
+	/*
+	 * Add the grouping atom to the tag.
+	 */
+	status = _BarFlyMp4TagAddMetaAtom(tag, "\251grp", GROUPING_CLASS,
+			(uint8_t const*)grouping, strlen(grouping), settings);
+	if (status != 0) {
+		goto error;
+	}
+
+	goto end;
+
+error:
+	exit_status = -1;
+
+end:
+	return exit_status;
+}
 
 int BarFlyMp4TagAddAlbum(BarFlyMp4Tag_t* tag, char const* album,
 		BarSettings_t const* settings)
