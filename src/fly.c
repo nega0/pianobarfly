@@ -917,6 +917,12 @@ static int _BarFlyTagID3Write(BarFly_t const* fly, uint8_t const* cover_art,
 		}
 	}
 
+	status = BarFlyID3AddFrame(tag, "TIT1", fly->stationName, settings);
+	if (status != 0) {
+		BarUiMsg(settings, MSG_ERR, "Failed to write grouping to tag.\n");
+		goto error;
+	}
+
 	/*
 	 * Write the tag to the file.
 	 */
