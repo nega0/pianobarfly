@@ -293,7 +293,7 @@ static BarFlyMp4Atom_t* _BarFlyMp4AtomOpen(char const* name, long offset,
  * Otherwise -1 is returned.
  */
 static int _BarFlyMp4AtomRender(BarFlyMp4Atom_t const* atom, FILE* in_file,
-		FILE* out_file, BarSettings_t const* settings);
+		int out_file, BarSettings_t const* settings);
 
 /**
  * Converts the first 4 bytes of the buffer to a long integer.
@@ -683,7 +683,7 @@ end:
 }
 
 static int _BarFlyMp4AtomRender(BarFlyMp4Atom_t const* atom, FILE* in_file,
-		FILE* out_file, BarSettings_t const* settings)
+		int out_file, BarSettings_t const* settings)
 {
 	int exit_status = 0;
 	int status;
@@ -696,14 +696,14 @@ static int _BarFlyMp4AtomRender(BarFlyMp4Atom_t const* atom, FILE* in_file,
 
 	assert(atom != NULL);
 	assert(in_file != NULL);
-	assert(out_file != NULL);
+	assert(out_file != -1);
 	assert(settings != NULL);
 
 	/*
 	 * Write the atom's size to the file.
 	 */
 	_BarFlyMp4LongRender(buffer, atom->size);
-	write_count = fwrite(buffer, 1, BAR_FLY_MP4_ATOM_SIZE_LENGTH, out_file);
+	write_count = write(out_file, buffer, BAR_FLY_MP4_ATOM_SIZE_LENGTH);
 	if (write_count != BAR_FLY_MP4_ATOM_SIZE_LENGTH) {
 		BarUiMsg(settings, MSG_ERR, "Error writing the atom's size to the file "
 				"(%d:%s).\n", errno, strerror(errno));
@@ -713,7 +713,7 @@ static int _BarFlyMp4AtomRender(BarFlyMp4Atom_t const* atom, FILE* in_file,
 	/*
 	 * Write the atom's name to the file.
 	 */
-	write_count = fwrite(atom->name, 1, BAR_FLY_MP4_ATOM_NAME_LENGTH, out_file);
+	write_count = write(out_file, atom->name, BAR_FLY_MP4_ATOM_NAME_LENGTH);
 	if (write_count != BAR_FLY_MP4_ATOM_NAME_LENGTH) {
 		BarUiMsg(settings, MSG_ERR, "Error writing the atom's name to the file "
 				"(%d:%s).\n", errno, strerror(errno));
@@ -746,7 +746,7 @@ static int _BarFlyMp4AtomRender(BarFlyMp4Atom_t const* atom, FILE* in_file,
 					goto error;
 				}
 
-				write_count = fwrite(buffer, 1, buf_size, out_file);
+				write_count = write(out_file, buffer, buf_size);
 				if (write_count != read_count) {
 					BarUiMsg(settings, MSG_ERR, "Error writing to a file "
 							"(%d:%s).\n", errno, strerror(errno));
@@ -756,7 +756,7 @@ static int _BarFlyMp4AtomRender(BarFlyMp4Atom_t const* atom, FILE* in_file,
 				data_size -= buf_size;
 			}
 		} else {
-			write_count = fwrite(atom->data, 1, atom->data_size, out_file);
+			write_count = write(out_file, atom->data, atom->data_size);
 			if (write_count != atom->data_size) {
 				BarUiMsg(settings, MSG_ERR, "Error writing to a file "
 						"(%d:%s).\n", errno, strerror(errno));
@@ -1896,14 +1896,15 @@ int BarFlyMp4TagWrite(BarFlyMp4Tag_t* tag, BarSettings_t const* settings)
 {
 	int exit_status = 0;
 	int status;
+	int tmp_file = -1;
 	uint8_t* buffer = NULL;
-	FILE* tmp_file = NULL;
 	uint8_t audio_buffer[BAR_FLY_COPY_BLOCK_SIZE];
 	size_t audio_buf_size;
 	size_t read_count;
 	size_t write_count;
-	char tmp_file_path[L_tmpnam];
-	char* junk;
+	char tmp_file_path[FILENAME_MAX];
+	strncpy(tmp_file_path, settings->audioFileDir,strlen(settings->audioFileDir)+1);
+	strncat(tmp_file_path, "/pianobarfly-XXXXXX", 19+1);
 	size_t atom_size;
 	BarFlyMp4Atom_t* atom;
 
@@ -1912,14 +1913,9 @@ int BarFlyMp4TagWrite(BarFlyMp4Tag_t* tag, BarSettings_t const* settings)
 
 	/*
 	 * Open the tmp file.
-	 *
-	 * Assigning the return value of tmpnam() to a junk pointer to get the
-	 * compiler to be quiet.
 	 */
-	junk = tmpnam(tmp_file_path);
-	junk = junk;
-	tmp_file = fopen(tmp_file_path, "wb");
-	if (tmp_file == NULL) {
+	tmp_file = mkstemp(tmp_file_path);
+	if (tmp_file == -1) {
 		BarUiMsg(settings, MSG_ERR,
 				"Error opening the temporary file (%s) (%d:%s).\n",
 				tmp_file_path, errno, strerror(errno));
@@ -1954,7 +1950,7 @@ int BarFlyMp4TagWrite(BarFlyMp4Tag_t* tag, BarSettings_t const* settings)
 			goto error;
 		}
 
-		write_count = fwrite(audio_buffer, 1, audio_buf_size, tmp_file);
+		write_count = write(tmp_file, audio_buffer, audio_buf_size);
 		if (write_count != read_count) {
 			BarUiMsg(settings, MSG_ERR,
 					"Error writing to the tmp file (%d:%s).\n",
@@ -2007,7 +2003,7 @@ int BarFlyMp4TagWrite(BarFlyMp4Tag_t* tag, BarSettings_t const* settings)
 			goto error;
 		}
 
-		write_count = fwrite(audio_buffer, 1, read_count, tmp_file);
+		write_count = write(tmp_file, audio_buffer, read_count);
 		if (write_count != read_count) {
 			BarUiMsg(settings, MSG_ERR,
 					"Error writing to the tmp file (%d:%s).\n",
@@ -2019,8 +2015,8 @@ int BarFlyMp4TagWrite(BarFlyMp4Tag_t* tag, BarSettings_t const* settings)
 	/*
 	 * Overwrite the audio file with the tmp file.
 	 */
-	fclose(tmp_file);
-	tmp_file = NULL;
+	close(tmp_file);
+	tmp_file = -1;
 
 	fclose(tag->mp4_file);
 	tag->mp4_file = NULL;
@@ -2047,8 +2043,8 @@ end:
 		free(buffer);
 	}
 
-	if (tmp_file != NULL) {
-		fclose(tmp_file);
+	if (tmp_file != -1) {
+		close(tmp_file);
 	}
 
 	return exit_status;
