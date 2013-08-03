@@ -1013,7 +1013,6 @@ static int _BarFlyTagMp4Write(BarFly_t const* fly, uint8_t const* cover_art,
 	}
 
 	BarUiMsg(settings, MSG_INFO, "Adding the grouping to the tag.\n");
-	printf("%s(%i): stationName = %s!\n",__FILE__,__LINE__,fly->stationName);
 	status = BarFlyMp4TagAddGrouping(tag, fly->stationName, settings);
 	if (status != 0) {
 		BarUiMsg(settings, MSG_ERR, "Error adding the grouping to the tag.\n");
