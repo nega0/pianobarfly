@@ -43,6 +43,7 @@
 # %disc = The disc number
 # %track = The track number
 # %title = The song title
+# %station = The station name
 #audio_file_name = %artist/%album/%artist-%title
 # If true spaces will not be replaced with '_' in the file names.
 #use_spaces = false

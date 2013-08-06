@@ -102,7 +102,7 @@ static int _BarFlyFileDelete(BarFly_t const* fly,
  * freed when done.
  */
 static char* _BarFlyFileGetPath(char const* artist, char const* album,
-		char const* title, short unsigned track, short unsigned disc,
+		char const* title, short unsigned track, short unsigned disc, char const* station,
 		PianoAudioFormat_t audio_format, BarSettings_t const* settings);
 
 /**
@@ -341,7 +341,7 @@ end:
 }
 
 static char* _BarFlyFileGetPath(char const* artist, char const* album,
-		char const* title, short unsigned track, short unsigned disc,
+		char const* title, short unsigned track, short unsigned disc, char const* station,
 		PianoAudioFormat_t audio_format, BarSettings_t const* settings)
 {
 	char* path = NULL;
@@ -349,6 +349,7 @@ static char* _BarFlyFileGetPath(char const* artist, char const* album,
 	char path_artist[BAR_FLY_NAME_LENGTH];
 	char path_album[BAR_FLY_NAME_LENGTH];
 	char path_title[BAR_FLY_NAME_LENGTH];
+	char path_station[BAR_FLY_NAME_LENGTH];
 	char const* extension;
 	char const* file_pattern_ptr;
 	size_t count;
@@ -366,6 +367,7 @@ static char* _BarFlyFileGetPath(char const* artist, char const* album,
 	_BarFlyNameTranslate(path_artist, artist, BAR_FLY_NAME_LENGTH, settings);
 	_BarFlyNameTranslate(path_album, album, BAR_FLY_NAME_LENGTH, settings);
 	_BarFlyNameTranslate(path_title, title, BAR_FLY_NAME_LENGTH, settings);
+	_BarFlyNameTranslate(path_station, station, BAR_FLY_NAME_LENGTH, settings);
 
 	/*
 	 * Get the extension.
@@ -422,6 +424,9 @@ static char* _BarFlyFileGetPath(char const* artist, char const* album,
 			} else if (strncmp("%disc", file_pattern_ptr, 5) == 0) {
 				path_length += snprintf(NULL, 0, "%hu", disc);
 				file_pattern_ptr += 5;
+			} else if (strncmp("%station", file_pattern_ptr, 8) == 0) {
+				path_length += strlen(path_station);
+				file_pattern_ptr += 8;
 			} else {
 				file_pattern_ptr += 1;
 			}
@@ -478,6 +483,10 @@ static char* _BarFlyFileGetPath(char const* artist, char const* album,
 				sprintf(path_ptr, "%hu", disc);
 				file_pattern_ptr += 5;
 				path_ptr += snprintf(NULL, 0, "%hu", disc);
+			} else if (strncmp("%station", file_pattern_ptr, 8) == 0) {
+				strcpy(path_ptr, path_station);
+				file_pattern_ptr += 8;
+				path_ptr += strlen(path_station);
 			} else {
 				file_pattern_ptr += 1;
 			}
@@ -1331,7 +1340,7 @@ int BarFlyOpen(BarFly_t* fly, PianoSong_t const* song,
 	 * Get the path to the file.
 	 */
 	output_fly.audio_file_path = _BarFlyFileGetPath(song->artist, song->album,
-			song->title, output_fly.track, output_fly.disc,
+			song->title, output_fly.track, output_fly.disc, output_fly.stationName,
 			song->audioFormat, settings);
 	if (output_fly.audio_file_path == NULL) {
 		goto error;
