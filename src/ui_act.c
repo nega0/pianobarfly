@@ -272,6 +272,9 @@ BarUiActCallback(BarUiActSongInfo) {
 			selStation->isQuickMix ?
 			PianoFindStationById (app->ph.stations, selSong->stationId) :
 			NULL);
+	BarUiStartEventCmd (&app->settings, "songinfo",
+			    app->curStation, app->playlist, &app->player, app->ph.stations,
+			    PIANO_RET_OK, WAITRESS_RET_OK);
 }
 
 /*	print some debugging information
