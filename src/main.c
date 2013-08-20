@@ -194,8 +194,13 @@ static void BarMainGetInitialStation (BarApp_t *app) {
 		app->curStation = PianoFindStationById (app->ph.stations,
 				app->settings.autostartStation);
 		if (app->curStation == NULL) {
-			BarUiMsg (&app->settings, MSG_ERR,
-					"Error: Autostart station not found.\n");
+			//try by name
+			app->curStation = PianoFindStationByName (app->ph.stations,
+				app->settings.autostartStation);
+			if (app->curStation == NULL) {
+				BarUiMsg (&app->settings, MSG_ERR,
+					"Error: Autostart station not found. '%s'\n", app->settings.autostartStation);
+			}
 		}
 	}
 	/* no autostart? ask the user */

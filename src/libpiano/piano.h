@@ -310,6 +310,7 @@ PianoReturn_t PianoResponse (PianoHandle_t *, PianoRequest_t *);
 void PianoDestroyRequest (PianoRequest_t *);
 
 PianoStation_t *PianoFindStationById (PianoStation_t *, const char *);
+PianoStation_t *PianoFindStationByName (PianoStation_t *, const char *);
 const char *PianoErrorToStr (PianoReturn_t);
 
 #endif /* _PIANO_H */
