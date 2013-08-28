@@ -697,7 +697,8 @@ static int _BarFlyMp4AtomRender(BarFlyMp4Atom_t const* atom, FILE* in_file,
 	int index;
 	size_t read_count;
 	size_t data_size;
-	uint8_t buffer[BAR_FLY_COPY_BLOCK_SIZE];
+	uint8_t *buffer;
+	buffer = (uint8_t* ) calloc(BAR_FLY_COPY_BLOCK_SIZE, sizeof(uint8_t));
 	size_t buf_size;
 
 	assert(atom != NULL);
@@ -790,6 +791,7 @@ error:
 	exit_status = -1;
 
 end:
+	free(buffer);
 	return exit_status;
 }
 
