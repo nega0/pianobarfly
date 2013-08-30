@@ -625,7 +625,7 @@ void BarStationFromGenre (BarApp_t *app) {
  *	@param format characters
  *	@param replacement for each given format character
  */
-static void BarUiCustomFormat (char *dest, size_t destSize, const char *format,
+void BarUiCustomFormat (char *dest, size_t destSize, const char *format,
 		const char *formatChars, const char **formatVals) {
 	bool haveFormatChar = false;
 
@@ -679,7 +679,7 @@ static void BarUiCustomFormat (char *dest, size_t destSize, const char *format,
 
 /*	append \n to string
  */
-static void BarUiAppendNewline (char *s, size_t maxlen) {
+void BarUiAppendNewline (char *s, size_t maxlen) {
 	size_t len;
 
 	/* append \n */
