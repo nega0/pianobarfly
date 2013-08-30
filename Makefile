@@ -7,12 +7,25 @@ INCDIR:=${PREFIX}/include
 MANDIR:=${PREFIX}/share/man
 DYNLINK:=0
 
+MD5SUM=md5sum
+AWK=awk
+PATCH=patch
+TAR=tar
+OSNAME=$(shell uname)
+
 # Respect environment variables set by user; does not work with :=
 ifeq (${CFLAGS},)
 	CFLAGS=-O2 -DNDEBUG
 endif
 ifeq (${CC},cc)
 	CC=c99
+endif
+
+ifeq ($(OSNAME), Darwin)
+	CC=clang
+	CFLAGS=-std=c99 -O2 -DNDEBUG -I/usr/local/include
+	LDFLAGS=-L/usr/local/lib
+	MD5SUM=md5
 endif
 
 PIANOBAR_DIR=src
@@ -169,14 +182,17 @@ clean:
 all: pianobarfly
 
 debug: pianobarfly
-debug: CFLAGS=-pedantic -ggdb -Wall -Wmissing-declarations -Wshadow -Wcast-qual \
-		-Wformat=2 -Winit-self -Wignored-qualifiers -Wmissing-include-dirs \
-		-Wfloat-equal -Wundef -Wpointer-arith -Wtype-limits -Wbad-function-cast \
-		-Wcast-align -Wclobbered -Wempty-body -Wjump-misses-init -Waddress \
-		-Wlogical-op -Waggregate-return -Wstrict-prototypes \
-		-Wold-style-declaration -Wold-style-definition -Wmissing-parameter-type \
-		-Wmissing-prototypes -Wmissing-field-initializers -Woverride-init \
-		-Wpacked -Wredundant-decls -Wnested-externs
+debug: CFLAGS=-g -pedantic -Wall -Wextra
+debug: CFLAGS+=-Wno-deprecated -Wno-unused-parameter -Wno-sign-compare
+debug: CFLAGS+=-I/usr/local/include
+#debug: CFLAGS=-pedantic -ggdb -Wall -Wmissing-declarations -Wshadow -Wcast-qual \
+#		-Wformat=2 -Winit-self -Wignored-qualifiers -Wmissing-include-dirs \
+#		-Wfloat-equal -Wundef -Wpointer-arith -Wtype-limits -Wbad-function-cast \
+#		-Wcast-align -Wclobbered -Wempty-body -Wjump-misses-init -Waddress \
+#		-Wlogical-op -Waggregate-return -Wstrict-prototypes \
+#		-Wold-style-declaration -Wold-style-definition -Wmissing-parameter-type \
+#		-Wmissing-prototypes -Wmissing-field-initializers -Woverride-init \
+#		-Wpacked -Wredundant-decls -Wnested-externs
 # warnings for gcc 4.5; disabled:
 # -Wswitch-default: too many bogus warnings
 # -Wswitch-enum: too many bogus warnings
