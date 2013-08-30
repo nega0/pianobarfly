@@ -30,8 +30,9 @@ THE SOFTWARE.
 #include "ui_dispatch.h"
 
 #define BarUiActCallback(name) void name (BarApp_t *app, \
-		PianoStation_t *selStation, PianoSong_t *selSong, \
-		BarUiDispatchContext_t context)
+		__attribute__ ((__unused__)) PianoStation_t *selStation, \
+		__attribute__ ((__unused__)) PianoSong_t *selSong, \
+		__attribute__ ((__unused__)) BarUiDispatchContext_t context)
 
 BarUiActCallback(BarUiActHelp);
 BarUiActCallback(BarUiActAddMusic);
