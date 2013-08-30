@@ -24,7 +24,9 @@ THE SOFTWARE.
 #ifndef _CRYPH_H
 #define _CRYPT_H
 
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gcrypt.h>
+#pragma GCC diagnostic warning "-Wdeprecated-declarations"
 
 char *PianoDecryptString (gcry_cipher_hd_t, const char * const,
 		size_t * const);

@@ -23,7 +23,9 @@ THE SOFTWARE.
 
 #include <string.h>
 #include <assert.h>
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gcrypt.h>
+#pragma GCC diagnostic warning "-Wdeprecated-declarations"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>

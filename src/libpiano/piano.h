@@ -25,7 +25,9 @@ THE SOFTWARE.
 #define _PIANO_H
 
 #include <stdbool.h>
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <gcrypt.h>
+#pragma GCC diagnostic warning "-Wdeprecated-declarations"
 
 /* this is our public API; don't expect this api to be stable as long as
  * pandora does not provide a stable api
