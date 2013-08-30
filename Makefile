@@ -107,7 +107,7 @@ ifeq (${DYNLINK},1)
 pianobarfly: ${PIANOBAR_OBJ} ${PIANOBAR_HDR} libpiano.so.0
 	@echo "  LINK  $@"
 	@${CC} -o $@ ${PIANOBAR_OBJ} ${LDFLAGS} -lao -lpthread -lm -L. -lpiano \
-			${LIBFAAD_LDFLAGS} ${LIBMAD_LDFLAGS} ${LIBGNUTLS_LDFLAGS}
+			${LIBFAAD_LDFLAGS} ${LIBMAD_LDFLAGS} ${LIBGNUTLS_LDFLAGS} ${LIBID3TAG_LDFLAGS}
 else
 pianobarfly: ${PIANOBAR_OBJ} ${PIANOBAR_HDR} ${LIBPIANO_OBJ} ${LIBWAITRESS_OBJ} \
 		${LIBWAITRESS_HDR}
@@ -209,17 +209,18 @@ else
 install: pianobarfly
 endif
 	install -d ${DESTDIR}/${BINDIR}/
-	install -m755 pianobarfly ${DESTDIR}/${BINDIR}/
+	install -s -m755 pianobarfly ${DESTDIR}/${BINDIR}/
 	install -d ${DESTDIR}/${MANDIR}/man1/
 	install -m644 contrib/pianobarfly.1 ${DESTDIR}/${MANDIR}/man1/
 
 install-libpiano:
 	install -d ${DESTDIR}/${LIBDIR}/
 	install -m644 libpiano.so.0.0.0 ${DESTDIR}/${LIBDIR}/
-	ln -s libpiano.so.0.0.0 ${DESTDIR}/${LIBDIR}/libpiano.so.0
-	ln -s libpiano.so.0 ${DESTDIR}/${LIBDIR}/libpiano.so
+	ln -s -f libpiano.so.0.0.0 ${DESTDIR}/${LIBDIR}/libpiano.so.0
+	ln -s -f libpiano.so.0 ${DESTDIR}/${LIBDIR}/libpiano.so
 	install -m644 libpiano.a ${DESTDIR}/${LIBDIR}/
 	install -d ${DESTDIR}/${INCDIR}/
 	install -m644 src/libpiano/piano.h ${DESTDIR}/${INCDIR}/
+	ldconfig
 
 .PHONY: install install-libpiano test debug all
