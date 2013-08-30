@@ -528,6 +528,15 @@ static ssize_t WaitressPollRead (void *data, void *buf, size_t count) {
 		return -1;
 	}
 	if ((retSize = read (waith->request.sockfd, buf, count)) == -1) {
+		/* this is a terrible hack. it seems that never see an
+		 * EOF at the end of a song, only an ECONNRESET
+		 */
+		#ifdef __APPLE__
+		if (errno == ECONNRESET) {
+			waith->request.readWriteRet = WAITRESS_RET_OK;
+			return 0;
+		}
+		#endif
 		waith->request.readWriteRet = WAITRESS_RET_READ_ERR;
 		return -1;
 	}
