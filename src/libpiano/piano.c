@@ -232,7 +232,7 @@ PianoStation_t *PianoFindStationById (PianoStation_t *stations,
 PianoStation_t *PianoFindStationByName (PianoStation_t *stations,
 		const char *searchStation) {
 	while (stations != NULL) {
-		if (strcmp (stations->name, searchStation) == 0) {
+		if (strncmp (stations->name, searchStation, sizeof(searchStation)) == 0) {
 			return stations;
 		}
 		stations = stations->next;
