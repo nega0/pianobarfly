@@ -697,7 +697,8 @@ static int _BarFlyMp4AtomRender(BarFlyMp4Atom_t const* atom, FILE* in_file,
 	int index;
 	size_t read_count;
 	size_t data_size;
-	uint8_t buffer[BAR_FLY_COPY_BLOCK_SIZE];
+	uint8_t *buffer;
+	buffer = (uint8_t* ) calloc(BAR_FLY_COPY_BLOCK_SIZE, sizeof(uint8_t));
 	size_t buf_size;
 
 	assert(atom != NULL);
@@ -790,6 +791,7 @@ error:
 	exit_status = -1;
 
 end:
+	free(buffer);
 	return exit_status;
 }
 
@@ -1938,8 +1940,7 @@ int BarFlyMp4TagWrite(BarFlyMp4Tag_t* tag, BarSettings_t const* settings)
 	size_t read_count;
 	size_t write_count;
 	char tmp_file_path[FILENAME_MAX];
-	strncpy(tmp_file_path, settings->audioFileDir,strlen(settings->audioFileDir)+1);
-	strncat(tmp_file_path, "/pianobarfly-XXXXXX", 19+1);
+	strncat(tmp_file_path, "pianobarfly-XXXXXX", 18+1);
 	size_t atom_size;
 	BarFlyMp4Atom_t* atom;
 
