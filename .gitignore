@@ -1,4 +1,5 @@
 *.d
+*.d.*
 *.o
 *.lo
 # vim swap files
