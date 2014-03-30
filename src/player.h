@@ -51,6 +51,7 @@ THE SOFTWARE.
 
 struct audioPlayer {
 	char doQuit;
+	bool record;
 	unsigned char channels;
 	unsigned char aoError;
 

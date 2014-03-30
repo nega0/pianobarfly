@@ -81,6 +81,7 @@ typedef struct {
 } BarMsgFormatStr_t;
 
 typedef struct {
+	bool record;
 	bool autoselect;
 	unsigned int history;
 	int volume;

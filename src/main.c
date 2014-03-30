@@ -256,6 +256,7 @@ static void BarMainStartPlayback (BarApp_t *app, pthread_t *playerThread) {
 	} else {
 		/* setup player */
 		memset (&app->player, 0, sizeof (app->player));
+		app->player.record = app->settings.record;
 
 		WaitressInit (&app->player.waith);
 		WaitressSetUrl (&app->player.waith, app->playlist->audioUrl);
@@ -273,7 +274,8 @@ static void BarMainStartPlayback (BarApp_t *app, pthread_t *playerThread) {
 		pthread_mutex_init (&app->player.pauseMutex, NULL);
 
 		/* Open the audio file. */
-		BarFlyOpen (&app->player.fly, app->playlist, &app->settings);
+		if(app->settings.record)
+			BarFlyOpen (&app->player.fly, app->playlist, &app->settings);
 
 		/* throw event */
 		BarUiStartEventCmd (&app->settings, "songstart",
@@ -423,6 +425,19 @@ int main (int argc, char **argv) {
 
 	BarSettingsInit (&app.settings);
 	BarSettingsRead (&app.settings);
+
+	/* override settings via cmdline */
+	while ((c = getopt (argc, argv, "rn")) != -1)
+		switch (c) {
+		case 'n':                              /* don't record */
+			app.settings.record = false;
+			break;
+		case 'r':                              /* record */
+			app.settings.record = true;
+			break;
+		default:
+			break;
+		}
 
 	PianoInit (&app.ph, app.settings.partnerUser, app.settings.partnerPassword,
 			app.settings.device, app.settings.inkey, app.settings.outkey);

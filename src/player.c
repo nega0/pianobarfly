@@ -96,9 +96,11 @@ static inline int BarPlayerBufferFill (struct audioPlayer *player,
 	}
 
 	/* Write the stream to the output file. */
-	status = BarFlyWrite(&player->fly, data, dataSize);
-	if (status != 0) {
-		BarUiMsg (player->settings, MSG_ERR, "Error writting audio file.\n");
+	if(player->record) {
+		status = BarFlyWrite(&player->fly, data, dataSize);
+		if (status != 0) {
+			BarUiMsg (player->settings, MSG_ERR, "Error writting audio file.\n");
+		}
 	}
 
 	memcpy (player->buffer+player->bufferFilled, data, dataSize);
@@ -498,7 +500,7 @@ void *BarPlayerThread (void *data) {
 			|| wRet == WAITRESS_RET_READ_ERR);
 
 	/* If the song was played all the way through tag it. */
-	if (wRet == WAITRESS_RET_OK) {
+	if (wRet == WAITRESS_RET_OK && (player->record)) {
 		BarFlyTag(&player->fly, player->settings);
 	}
 
