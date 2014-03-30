@@ -72,7 +72,9 @@ To install on Ubuntu >= 12.04
 			libfaad-dev \
 			libgnutls-dev \
 			libjson0-dev \
-			libgcrypt11-dev
+			libgcrypt11-dev \
+			libid3tag0 \
+			libid3tag0-dev
 	make
 	sudo make install
 
