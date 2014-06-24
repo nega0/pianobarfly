@@ -15,6 +15,10 @@ ifeq (${CC},cc)
 	OS := $(shell uname)
 	ifeq (${OS},Darwin)
 		CC=gcc -std=c99
+	else ifeq (${OS},FreeBSD)
+		CC=cc -std=c99
+	else ifeq (${OS},OpenBSD)
+		CC=cc -std=c99
 	else
 		CC=c99
 	endif
@@ -54,7 +58,8 @@ LIBPIANO_SRC:=\
 		${LIBPIANO_DIR}/crypt.c \
 		${LIBPIANO_DIR}/piano.c \
 		${LIBPIANO_DIR}/request.c \
-		${LIBPIANO_DIR}/response.c
+		${LIBPIANO_DIR}/response.c \
+		${LIBPIANO_DIR}/list.c
 LIBPIANO_HDR:=\
 		${LIBPIANO_DIR}/config.h \
 		${LIBPIANO_DIR}/crypt.h \
@@ -72,6 +77,9 @@ LIBWAITRESS_HDR:=\
 LIBWAITRESS_OBJ:=${LIBWAITRESS_SRC:.c=.o}
 LIBWAITRESS_RELOBJ:=${LIBWAITRESS_SRC:.c=.lo}
 LIBWAITRESS_INCLUDE:=${LIBWAITRESS_DIR}
+
+LIBWAITRESS_TEST_SRC=${LIBWAITRESS_DIR}/waitress-test.c
+LIBWAITRESS_TEST_OBJ:=${LIBWAITRESS_TEST_SRC:.c=.o}
 
 ifeq (${DISABLE_FAAD}, 1)
 	LIBFAAD_CFLAGS:=
@@ -175,36 +183,25 @@ clean:
 all: pianobarfly
 
 debug: pianobarfly
-debug: CFLAGS=-pedantic -ggdb -Wall -Wmissing-declarations -Wshadow -Wcast-qual \
-		-Wformat=2 -Winit-self -Wignored-qualifiers -Wmissing-include-dirs \
-		-Wfloat-equal -Wundef -Wpointer-arith -Wtype-limits -Wbad-function-cast \
-		-Wcast-align -Wclobbered -Wempty-body -Wjump-misses-init -Waddress \
-		-Wlogical-op -Waggregate-return -Wstrict-prototypes \
-		-Wold-style-declaration -Wold-style-definition -Wmissing-parameter-type \
-		-Wmissing-prototypes -Wmissing-field-initializers -Woverride-init \
-		-Wpacked -Wredundant-decls -Wnested-externs
-# warnings for gcc 4.5; disabled:
-# -Wswitch-default: too many bogus warnings
-# -Wswitch-enum: too many bogus warnings
-# -Wunused-parameter: too many bogus warnings
-# -Wstrict-overflow: depends on optimization level
-# -Wunsafe-loop-optimizations: depends on optimization level
-# -Wwrite-strings: to be enabled
-# -Wconversion: too many (bogus?) warnings
-# -Wsign-conversion: same here
-# -Wsign-compare: to be enabled
-# -Wmissing-noreturn: recommendation
-# -Wmissing-format-attribute: same here
-# -Wpadded: have a closer look at this one
-# -Winline: we don't care
-# -Winvalid-pch: not our business
-# -Wdisabled-optimization: depends on optimization level
-# -Wstack-protector: we don't use stack protector
-# -Woverlength-strings: over-portability-ish
+debug: CC=clang
+debug: CFLAGS=-Wall -Wextra \
+				-pedantic \
+				-Wno-unused-parameter \
+				-fsanitize=address \
+				-fsanitize=integer \
+				-fsanitize=undefined \
+				-fsanitize=alignment \
+				-fsanitize=bool \
+				-fsanitize=bounds \
+				-fsanitize=enum \
+				-fsanitize=shift \
+				-fsanitize=signed-integer-overflow \
+				-fsanitize=unsigned-integer-overflow \
+				-fno-sanitize-recover
+debug: LDFLAGS=$(CFLAGS)
 
-waitress-test: CFLAGS+= -DTEST
-waitress-test: ${LIBWAITRESS_OBJ}
-	${CC} ${LDFLAGS} ${LIBWAITRESS_OBJ} ${LIBGNUTLS_LDFLAGS} -o waitress-test
+waitress-test: ${LIBWAITRESS_TEST_OBJ}
+	${CC} ${LDFLAGS} ${LIBWAITRESS_TEST_OBJ} ${LIBGNUTLS_LDFLAGS} -o waitress-test
 
 test: waitress-test
 	./waitress-test

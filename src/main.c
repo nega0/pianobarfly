@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2008-2012
+Copyright (c) 2008-2013
 	Lars-Dominik Braun <lars@6xq.net>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -269,6 +269,7 @@ static void BarMainStartPlayback (BarApp_t *app, pthread_t *playerThread) {
 		app->player.scale = BarPlayerCalcScale (app->player.gain + app->settings.volume);
 		app->player.audioFormat = app->playlist->audioFormat;
 		app->player.settings = &app->settings;
+		app->player.songDuration = app->playlist->length * 1000;
 		pthread_mutex_init (&app->player.pauseMutex, NULL);
 		pthread_cond_init (&app->player.pauseCond, NULL);
 		strcpy(app->player.fly.stationName, app->curStation->name);
@@ -336,7 +337,7 @@ static void BarMainPrintTime (BarApp_t *app) {
 		sign = POSITIVE;
 		songRemaining = -songRemaining;
 	}
-	BarUiMsg (&app->settings, MSG_TIME, "%c%02i:%02i/%02i:%02i   * %s\r",
+	BarUiMsg (&app->settings, MSG_TIME, "%c%02i:%02i/%02li:%02li   * %s\r",
 			(sign == POSITIVE ? '+' : '-'),
 			songRemaining / 60, songRemaining % 60,
 			app->player.songDuration / BAR_PLAYER_MS_TO_S_FACTOR / 60,
@@ -381,8 +382,8 @@ static void BarMainLoop (BarApp_t *app) {
 			/* what's next? */
 			if (app->playlist != NULL) {
 				PianoSong_t *histsong = app->playlist;
-				app->playlist = app->playlist->next;
-				histsong->next = NULL;
+				app->playlist = PianoListNextP (app->playlist);
+				histsong->head.next = NULL;
 				BarUiHistoryPrepend (app, histsong);
 			}
 			if (app->playlist == NULL) {
@@ -397,8 +398,7 @@ static void BarMainLoop (BarApp_t *app) {
 		BarMainHandleUserInput (app);
 
 		/* show time */
-		if (app->player.mode >= PLAYER_SAMPLESIZE_INITIALIZED &&
-				app->player.mode < PLAYER_FINISHED_PLAYBACK) {
+		if (app->player.mode < PLAYER_FINISHED_PLAYBACK) {
 			BarMainPrintTime (app);
 		}
 	}
@@ -433,8 +433,14 @@ int main (int argc, char **argv) {
 	BarSettingsInit (&app.settings);
 	BarSettingsRead (&app.settings);
 
-	PianoInit (&app.ph, app.settings.partnerUser, app.settings.partnerPassword,
-			app.settings.device, app.settings.inkey, app.settings.outkey);
+	PianoReturn_t pret;
+	if ((pret = PianoInit (&app.ph, app.settings.partnerUser,
+			app.settings.partnerPassword, app.settings.device,
+			app.settings.inkey, app.settings.outkey)) != PIANO_RET_OK) {
+		BarUiMsg (&app.settings, MSG_ERR, "Initialization failed:"
+				" %s\n", PianoErrorToStr (pret));
+		return 0;
+	}
 
 	BarUiMsg (&app.settings, MSG_NONE,
 			"Welcome to " PACKAGE " (" VERSION ")! ");

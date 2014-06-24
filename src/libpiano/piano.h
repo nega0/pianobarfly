@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2008-2011
+Copyright (c) 2008-2013
 	Lars-Dominik Braun <lars@6xq.net>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -25,6 +25,9 @@ THE SOFTWARE.
 #define _PIANO_H
 
 #include <stdbool.h>
+#ifdef __FreeBSD__
+#define _GCRYPT_IN_LIBGCRYPT
+#endif
 #include <gcrypt.h>
 
 /* this is our public API; don't expect this api to be stable as long as
@@ -39,19 +42,23 @@ THE SOFTWARE.
 #define PIANO_RPC_HOST "tuner.pandora.com"
 #define PIANO_RPC_PATH "/services/json/?"
 
+typedef struct PianoListHead {
+	struct PianoListHead *next;
+} PianoListHead_t;
+
 typedef struct PianoUserInfo {
 	char *listenerId;
 	char *authToken;
 } PianoUserInfo_t;
 
 typedef struct PianoStation {
+	PianoListHead_t head;
 	char isCreator;
 	char isQuickMix;
 	char useQuickMix; /* station will be included in quickmix */
 	char *name;
 	char *id;
 	char *seedId;
-	struct PianoStation *next;
 } PianoStation_t;
 
 typedef enum {
@@ -75,6 +82,7 @@ typedef enum {
 } PianoAudioQuality_t;
 
 typedef struct PianoSong {
+	PianoListHead_t head;
 	char *artist;
 	char *stationId;
 	char *album;
@@ -87,32 +95,32 @@ typedef struct PianoSong {
 	char *detailUrl;
 	char *trackToken;
 	float fileGain;
+	unsigned int length; /* song length in seconds */
 	PianoSongRating_t rating;
 	PianoAudioFormat_t audioFormat;
-	struct PianoSong *next;
 	char* songExplorerUrl;
 	char* albumExplorerUrl;	
 } PianoSong_t;
 
 /* currently only used for search results */
 typedef struct PianoArtist {
+	PianoListHead_t head;
 	char *name;
 	char *musicId;
 	char *seedId;
 	int score;
-	struct PianoArtist *next;
 } PianoArtist_t;
 
 typedef struct PianoGenre {
+	PianoListHead_t head;
 	char *name;
 	char *musicId;
-	struct PianoGenre *next;
 } PianoGenre_t;
 
 typedef struct PianoGenreCategory {
+	PianoListHead_t head;
 	char *name;
 	PianoGenre_t *genres;
-	struct PianoGenreCategory *next;
 } PianoGenreCategory_t;
 
 typedef struct PianoPartner {
@@ -249,6 +257,7 @@ typedef enum {
 	PIANO_RET_OUT_OF_MEMORY = 4,
 	PIANO_RET_INVALID_LOGIN = 5,
 	PIANO_RET_QUALITY_UNAVAILABLE = 6,
+	PIANO_RET_GCRY_ERR = 7,
 
 	/* pandora error codes */
 	PIANO_RET_P_INTERNAL = PIANO_RET_OFFSET+0,
@@ -296,7 +305,31 @@ typedef enum {
 	PIANO_RET_P_RATE_LIMIT = PIANO_RET_OFFSET+1039,
 } PianoReturn_t;
 
-void PianoInit (PianoHandle_t *, const char *,
+/* list stuff */
+#ifndef __GNUC__
+#  define __attribute__(x)
+#endif
+size_t PianoListCount (const PianoListHead_t * const l);
+#define PianoListCountP(l) PianoListCount(&(l)->head)
+void *PianoListAppend (PianoListHead_t * const l, PianoListHead_t * const e)
+		__attribute__ ((warn_unused_result));
+#define PianoListAppendP(l,e) PianoListAppend(((l) == NULL) ? NULL : &(l)->head, \
+		&(e)->head)
+void *PianoListDelete (PianoListHead_t * const l, PianoListHead_t * const e)
+		__attribute__ ((warn_unused_result));
+#define PianoListDeleteP(l,e) PianoListDelete(((l) == NULL) ? NULL : &(l)->head, \
+		&(e)->head)
+#define PianoListNextP(e) ((void *) (e)->head.next)
+void *PianoListPrepend (PianoListHead_t * const l, PianoListHead_t * const e)
+		__attribute__ ((warn_unused_result));
+#define PianoListPrependP(l,e) PianoListPrepend (((l) == NULL) ? NULL : &(l)->head, \
+		&(e)->head)
+void *PianoListGet (PianoListHead_t * const l, const size_t n);
+#define PianoListGetP(l,n) PianoListGet (&(l)->head, n)
+#define PianoListForeachP(l) for (; (l) != NULL; (l) = (void *) (l)->head.next)
+
+/* memory management */
+PianoReturn_t PianoInit (PianoHandle_t *, const char *,
 		const char *, const char *, const char *,
 		const char *);
 void PianoDestroy (PianoHandle_t *);
@@ -304,12 +337,15 @@ void PianoDestroyPlaylist (PianoSong_t *);
 void PianoDestroySearchResult (PianoSearchResult_t *);
 void PianoDestroyStationInfo (PianoStationInfo_t *);
 
+/* pandora rpc */
 PianoReturn_t PianoRequest (PianoHandle_t *, PianoRequest_t *,
 		PianoRequestType_t);
 PianoReturn_t PianoResponse (PianoHandle_t *, PianoRequest_t *);
 void PianoDestroyRequest (PianoRequest_t *);
 
-PianoStation_t *PianoFindStationById (PianoStation_t *, const char *);
+/* misc */
+PianoStation_t *PianoFindStationById (PianoStation_t * const,
+		const char * const);
 const char *PianoErrorToStr (PianoReturn_t);
 
 #endif /* _PIANO_H */

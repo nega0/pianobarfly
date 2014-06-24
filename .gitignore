@@ -6,6 +6,7 @@
 pianobarfly
 libpiano.a
 libpiano.so*
+waitress-test
 mp3
 \#*
 TAGS

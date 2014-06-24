@@ -254,15 +254,15 @@ int BarFlyID3WriteFile(char const* file_path, struct id3_tag const* tag,
 	size1 = id3_tag_render(tag, NULL);
 	tag_buffer = malloc(size1);
 	if (tag_buffer == NULL) {
-		BarUiMsg(settings, MSG_ERR, "Failed to allocate memory (bytes = %d).\n",
+		BarUiMsg(settings, MSG_ERR, "Failed to allocate memory (bytes = %li).\n",
 				size1);
 		goto error;
 	}
 
 	size2 = id3_tag_render(tag, tag_buffer);
 	if (size1 != size2) {
-		BarUiMsg(settings, MSG_ERR, "Invalid tag size (expected = %d, "
-				"recevied = %d).\n", size1, size2);
+		BarUiMsg(settings, MSG_ERR, "Invalid tag size (expected = %li, "
+				"recevied = %li).\n", size1, size2);
 		goto error;
 	}
 

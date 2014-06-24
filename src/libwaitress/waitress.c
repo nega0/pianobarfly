@@ -803,8 +803,8 @@ static WaitressReturn_t WaitressTlsVerify (const WaitressHandle_t *waith) {
 /*	Connect to server
  */
 static WaitressReturn_t WaitressConnect (WaitressHandle_t *waith) {
-	struct addrinfo hints, *res;
-	int pollres;
+	WaitressReturn_t ret;
+	struct addrinfo hints, *gares;
 
 	memset (&hints, 0, sizeof hints);
 
@@ -814,47 +814,66 @@ static WaitressReturn_t WaitressConnect (WaitressHandle_t *waith) {
 	/* Use proxy? */
 	if (WaitressProxyEnabled (waith)) {
 		if (getaddrinfo (waith->proxy.host,
-				WaitressDefaultPort (&waith->proxy), &hints, &res) != 0) {
+				WaitressDefaultPort (&waith->proxy), &hints, &gares) != 0) {
 			return WAITRESS_RET_GETADDR_ERR;
 		}
 	} else {
 		if (getaddrinfo (waith->url.host,
-				WaitressDefaultPort (&waith->url), &hints, &res) != 0) {
+				WaitressDefaultPort (&waith->url), &hints, &gares) != 0) {
 			return WAITRESS_RET_GETADDR_ERR;
 		}
 	}
 
-	if ((waith->request.sockfd = socket (res->ai_family, res->ai_socktype,
-			res->ai_protocol)) == -1) {
-		freeaddrinfo (res);
-		return WAITRESS_RET_SOCK_ERR;
+	/* try all addresses */
+	for (struct addrinfo *gacurr = gares; gacurr != NULL;
+			gacurr = gacurr->ai_next) {
+		int sock = -1;
+
+		ret = WAITRESS_RET_OK;
+
+		if ((sock = socket (gacurr->ai_family, gacurr->ai_socktype,
+				gacurr->ai_protocol)) == -1) {
+			ret = WAITRESS_RET_SOCK_ERR;
+		} else {
+			int pollres;
+
+			/* we need shorter timeouts for connect() */
+			fcntl (sock, F_SETFL, O_NONBLOCK);
+
+			/* increase socket receive buffer */
+			const int sockopt = 5*1024*1024;
+			setsockopt (sock, SOL_SOCKET, SO_RCVBUF, &sockopt,
+					sizeof (sockopt));
+
+			/* non-blocking connect will return immediately */
+			connect (sock, gacurr->ai_addr, gacurr->ai_addrlen);
+
+			pollres = WaitressPollLoop (sock, POLLOUT, waith->timeout);
+			if (pollres == 0) {
+				ret = WAITRESS_RET_TIMEOUT;
+			} else if (pollres == -1) {
+				ret = WAITRESS_RET_ERR;
+			} else {
+				/* check connect () return value */
+				socklen_t pollresSize = sizeof (pollres);
+				getsockopt (sock, SOL_SOCKET, SO_ERROR, &pollres,
+						&pollresSize);
+				if (pollres != 0) {
+					ret = WAITRESS_RET_CONNECT_REFUSED;
+				} else {
+					/* this one is working */
+					waith->request.sockfd = sock;
+					break;
+				}
+			}
+			close (sock);
+		}
 	}
 
-	/* we need shorter timeouts for connect() */
-	fcntl (waith->request.sockfd, F_SETFL, O_NONBLOCK);
-
-	/* increase socket receive buffer */
-	const int sockopt = 256*1024;
-	setsockopt (waith->request.sockfd, SOL_SOCKET, SO_RCVBUF, &sockopt,
-			sizeof (sockopt));
-
-	/* non-blocking connect will return immediately */
-	connect (waith->request.sockfd, res->ai_addr, res->ai_addrlen);
-
-	pollres = WaitressPollLoop (waith->request.sockfd, POLLOUT,
-			waith->timeout);
-	freeaddrinfo (res);
-	if (pollres == 0) {
-		return WAITRESS_RET_TIMEOUT;
-	} else if (pollres == -1) {
-		return WAITRESS_RET_ERR;
-	}
-	/* check connect () return value */
-	socklen_t pollresSize = sizeof (pollres);
-	getsockopt (waith->request.sockfd, SOL_SOCKET, SO_ERROR, &pollres,
-			&pollresSize);
-	if (pollres != 0) {
-		return WAITRESS_RET_CONNECT_REFUSED;
+	freeaddrinfo (gares);
+	/* could not connect to any of the addresses */
+	if (ret != WAITRESS_RET_OK) {
+		return ret;
 	}
 
 	if (waith->url.tls) {
@@ -1255,124 +1274,4 @@ const char *WaitressErrorToStr (WaitressReturn_t wRet) {
 			break;
 	}
 }
-
-#ifdef TEST
-/* test cases for libwaitress */
-
-#include <stdio.h>
-#include <stdbool.h>
-#include <string.h>
-#include "waitress.h"
-
-#define streq(a,b) (strcmp(a,b) == 0)
-
-/*	string equality test (memory location or content)
- */
-static bool streqtest (const char *x, const char *y) {
-	return (x == y) || (x != NULL && y != NULL && streq (x, y));
-}
-
-/*	test WaitressSplitUrl
- *	@param tested url
- *	@param expected user
- *	@param expected password
- *	@param expected host
- *	@param expected port
- *	@param expected path
- */
-static void compareUrl (const char *url, const char *user,
-		const char *password, const char *host, const char *port,
-		const char *path) {
-	WaitressUrl_t splitUrl;
-
-	memset (&splitUrl, 0, sizeof (splitUrl));
-
-	WaitressSplitUrl (url, &splitUrl);
-
-	bool userTest, passwordTest, hostTest, portTest, pathTest, overallTest;
-
-	userTest = streqtest (splitUrl.user, user);
-	passwordTest = streqtest (splitUrl.password, password);
-	hostTest = streqtest (splitUrl.host, host);
-	portTest = streqtest (splitUrl.port, port);
-	pathTest = streqtest (splitUrl.path, path);
-
-	overallTest = userTest && passwordTest && hostTest && portTest && pathTest;
-
-	if (!overallTest) {
-		printf ("FAILED test(s) for %s\n", url);
-		if (!userTest) {
-			printf ("user: %s vs %s\n", splitUrl.user, user);
-		}
-		if (!passwordTest) {
-			printf ("password: %s vs %s\n", splitUrl.password, password);
-		}
-		if (!hostTest) {
-			printf ("host: %s vs %s\n", splitUrl.host, host);
-		}
-		if (!portTest) {
-			printf ("port: %s vs %s\n", splitUrl.port, port);
-		}
-		if (!pathTest) {
-			printf ("path: %s vs %s\n", splitUrl.path, path);
-		}
-	} else {
-		printf ("OK for %s\n", url);
-	}
-}
-
-/*	compare two strings
- */
-void compareStr (const char *result, const char *expected) {
-	if (!streq (result, expected)) {
-		printf ("FAIL for %s, result was %s\n", expected, result);
-	} else {
-		printf ("OK for %s\n", expected);
-	}
-}
-
-/*	test entry point
- */
-int main () {
-	/* WaitressSplitUrl tests */
-	compareUrl ("http://www.example.com/", NULL, NULL, "www.example.com", NULL,
-			"");
-	compareUrl ("http://www.example.com", NULL, NULL, "www.example.com", NULL,
-			NULL);
-	compareUrl ("http://www.example.com:80/", NULL, NULL, "www.example.com",
-			"80", "");
-	compareUrl ("http://www.example.com:/", NULL, NULL, "www.example.com", "",
-			"");
-	compareUrl ("http://:80/", NULL, NULL, "", "80", "");
-	compareUrl ("http://www.example.com/foobar/barbaz", NULL, NULL,
-			"www.example.com", NULL, "foobar/barbaz");
-	compareUrl ("http://www.example.com:80/foobar/barbaz", NULL, NULL,
-			"www.example.com", "80", "foobar/barbaz");
-	compareUrl ("http://foo:bar@www.example.com:80/foobar/barbaz", "foo", "bar",
-			"www.example.com", "80", "foobar/barbaz");
-	compareUrl ("http://foo:@www.example.com:80/foobar/barbaz", "foo", "",
-			"www.example.com", "80", "foobar/barbaz");
-	compareUrl ("http://foo@www.example.com:80/foobar/barbaz", "foo", NULL,
-			"www.example.com", "80", "foobar/barbaz");
-	compareUrl ("http://:foo@www.example.com:80/foobar/barbaz", "", "foo",
-			"www.example.com", "80", "foobar/barbaz");
-	compareUrl ("http://:@:80", "", "", "", "80", NULL);
-	compareUrl ("http://", NULL, NULL, NULL, NULL, NULL);
-	compareUrl ("http:///", NULL, NULL, "", NULL, "");
-	compareUrl ("http://foo:bar@", "foo", "bar", "", NULL, NULL);
-
-	/* WaitressBase64Encode tests */
-	compareStr (WaitressBase64Encode ("M"), "TQ==");
-	compareStr (WaitressBase64Encode ("Ma"), "TWE=");
-	compareStr (WaitressBase64Encode ("Man"), "TWFu");
-	compareStr (WaitressBase64Encode ("The quick brown fox jumped over the lazy dog."),
-			"VGhlIHF1aWNrIGJyb3duIGZveCBqdW1wZWQgb3ZlciB0aGUgbGF6eSBkb2cu");
-	compareStr (WaitressBase64Encode ("The quick brown fox jumped over the lazy dog"),
-			"VGhlIHF1aWNrIGJyb3duIGZveCBqdW1wZWQgb3ZlciB0aGUgbGF6eSBkb2c=");
-	compareStr (WaitressBase64Encode ("The quick brown fox jumped over the lazy do"),
-			"VGhlIHF1aWNrIGJyb3duIGZveCBqdW1wZWQgb3ZlciB0aGUgbGF6eSBkbw==");
-
-	return EXIT_SUCCESS;
-}
-#endif /* TEST */
 
