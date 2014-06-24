@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2009-2011
+Copyright (c) 2009-2013
 	Lars-Dominik Braun <lars@6xq.net>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -661,64 +661,69 @@ static WaitressHandlerReturn_t WaitressHandleIdentity (void *data, char *buf,
 	}
 }
 
-/*	chunked encoding handler. buf must be \0-terminated, size does not include
- *	trailing \0.
+/*	chunked encoding handler
  */
 static WaitressHandlerReturn_t WaitressHandleChunked (void *data, char *buf,
 		const size_t size) {
 	assert (data != NULL);
 	assert (buf != NULL);
 
-	WaitressHandle_t *waith = data;
-	char *content = buf, *nextContent;
+	WaitressHandle_t * const waith = data;
+	size_t pos = 0;
 
-	assert (waith != NULL);
-	assert (buf != NULL);
-
-	while (1) {
-		if (waith->request.chunkSize > 0) {
-			const size_t remaining = size-(content-buf);
-
-			if (remaining >= waith->request.chunkSize) {
-				if (WaitressHandleIdentity (waith, content,
-						waith->request.chunkSize) == WAITRESS_HANDLER_ABORTED) {
-					return WAITRESS_HANDLER_ABORTED;
-				}
-
-				content += waith->request.chunkSize;
-				if (content[0] == '\r' && content[1] == '\n') {
-					content += 2;
+	while (pos < size) {
+		switch (waith->request.chunkedState) {
+			case CHUNKSIZE:
+				/* Poor man’s hex to integer. This avoids another buffer that
+				 * fills until the terminating \r\n is received. */
+				if (buf[pos] >= '0' && buf[pos] <= '9') {
+					waith->request.chunkSize <<= 4;
+					waith->request.chunkSize |= buf[pos] & 0xf;
+				} else if (buf[pos] >= 'a' && buf[pos] <= 'f') {
+					waith->request.chunkSize <<= 4;
+					waith->request.chunkSize |= (buf[pos]+9) & 0xf;
+				} else if (buf[pos] == '\r') {
+					/* ignore */
+				} else if (buf[pos] == '\n') {
+					waith->request.chunkedState = DATA;
+					/* last chunk has size 0 */
+					if (waith->request.chunkSize == 0) {
+						return WAITRESS_HANDLER_DONE;
+					}
 				} else {
+					/* everything else is a protocol violation */
 					return WAITRESS_HANDLER_ERR;
 				}
-				waith->request.chunkSize = 0;
-			} else {
-				if (WaitressHandleIdentity (waith, content, remaining) ==
-						WAITRESS_HANDLER_ABORTED) {
-					return WAITRESS_HANDLER_ABORTED;
-				}
-				waith->request.chunkSize -= remaining;
-				return WAITRESS_HANDLER_CONTINUE;
-			}
-		}
+				++pos;
+				break;
 
-		if ((nextContent = WaitressGetline (content)) != NULL) {
-			const long int chunkSize = strtol (content, NULL, 16);
-			if (chunkSize == 0) {
-				return WAITRESS_HANDLER_DONE;
-			} else if (chunkSize < 0) {
-				return WAITRESS_HANDLER_ERR;
-			} else {
-				waith->request.chunkSize = chunkSize;
-				content = nextContent;
-			}
-		} else {
-			return WAITRESS_HANDLER_ERR;
+			case DATA:
+				if (waith->request.chunkSize > 0) {
+					assert (size >= pos);
+					size_t payloadSize = size - pos;
+
+					if (payloadSize > waith->request.chunkSize) {
+						payloadSize = waith->request.chunkSize;
+					}
+					if (WaitressHandleIdentity (waith, &buf[pos],
+							payloadSize) == WAITRESS_HANDLER_ABORTED) {
+						return WAITRESS_HANDLER_ABORTED;
+					}
+					pos += payloadSize;
+					assert (waith->request.chunkSize >= payloadSize);
+					waith->request.chunkSize -= payloadSize;
+				} else {
+					/* next chunk size starts in the next line */
+					if (buf[pos] == '\n') {
+						waith->request.chunkedState = CHUNKSIZE;
+					}
+					++pos;
+				}
+				break;
 		}
 	}
 
-	assert (0);
-	return WAITRESS_HANDLER_ERR;
+	return WAITRESS_HANDLER_CONTINUE;
 }
 
 /*	handle http header
@@ -731,6 +736,7 @@ static void WaitressHandleHeader (WaitressHandle_t *waith, const char * const ke
 
 	if (strcaseeq (key, "Content-Length")) {
 		waith->request.contentLength = atol (value);
+		waith->request.contentLengthKnown = true;
 	} else if (strcaseeq (key, "Transfer-Encoding")) {
 		if (strcaseeq (value, "chunked")) {
 			waith->request.dataHandler = WaitressHandleChunked;
@@ -753,44 +759,45 @@ static int WaitressParseStatusline (const char * const line) {
 
 /*	verify server certificate
  */
-static int WaitressTlsVerify (const WaitressHandle_t *waith) {
+static WaitressReturn_t WaitressTlsVerify (const WaitressHandle_t *waith) {
 	gnutls_session_t session = waith->request.tlsSession;
 	unsigned int certListSize;
 	const gnutls_datum_t *certList;
 	gnutls_x509_crt_t cert;
 
 	if (gnutls_certificate_type_get (session) != GNUTLS_CRT_X509) {
-		return GNUTLS_E_CERTIFICATE_ERROR;
+		return WAITRESS_RET_TLS_HANDSHAKE_ERR;
 	}
 
 	if ((certList = gnutls_certificate_get_peers (session,
 			&certListSize)) == NULL) {
-		return GNUTLS_E_CERTIFICATE_ERROR;
+		return WAITRESS_RET_TLS_HANDSHAKE_ERR;
 	}
 
 	if (gnutls_x509_crt_init (&cert) != GNUTLS_E_SUCCESS) {
-		return GNUTLS_E_CERTIFICATE_ERROR;
+		return WAITRESS_RET_TLS_HANDSHAKE_ERR;
 	}
 
 	if (gnutls_x509_crt_import (cert, &certList[0],
 			GNUTLS_X509_FMT_DER) != GNUTLS_E_SUCCESS) {
-		return GNUTLS_E_CERTIFICATE_ERROR;
+		return WAITRESS_RET_TLS_HANDSHAKE_ERR;
 	}
 
 	char fingerprint[20];
 	size_t fingerprintSize = sizeof (fingerprint);
 	if (gnutls_x509_crt_get_fingerprint (cert, GNUTLS_DIG_SHA1, fingerprint,
 			&fingerprintSize) != 0) {
-		return GNUTLS_E_CERTIFICATE_ERROR;
+		return WAITRESS_RET_TLS_HANDSHAKE_ERR;
 	}
 
+	assert (waith->tlsFingerprint != NULL);
 	if (memcmp (fingerprint, waith->tlsFingerprint, sizeof (fingerprint)) != 0) {
-		return GNUTLS_E_CERTIFICATE_ERROR;
+		return WAITRESS_RET_TLS_FINGERPRINT_MISMATCH;
 	}
 
 	gnutls_x509_crt_deinit (cert);
 
-	return 0;
+	return WAITRESS_RET_OK;
 }
 
 /*	Connect to server
@@ -851,11 +858,12 @@ static WaitressReturn_t WaitressConnect (WaitressHandle_t *waith) {
 	}
 
 	if (waith->url.tls) {
+		WaitressReturn_t wRet;
+
 		/* set up proxy tunnel */
 		if (WaitressProxyEnabled (waith)) {
 			char buf[256];
 			size_t size;
-			WaitressReturn_t wRet;
 
 			snprintf (buf, sizeof (buf), "CONNECT %s:%s HTTP/"
 					WAITRESS_HTTP_VERSION "\r\n"
@@ -883,8 +891,8 @@ static WaitressReturn_t WaitressConnect (WaitressHandle_t *waith) {
 			return WAITRESS_RET_TLS_HANDSHAKE_ERR;
 		}
 
-		if (WaitressTlsVerify (waith) != 0) {
-			return WAITRESS_RET_TLS_HANDSHAKE_ERR;
+		if ((wRet = WaitressTlsVerify (waith)) != WAITRESS_RET_OK) {
+			return wRet;
 		}
 
 		/* now we can talk encrypted */
@@ -1000,6 +1008,10 @@ static WaitressReturn_t WaitressReceiveHeaders (WaitressHandle_t *waith,
 							hdrParseMode = HDRM_LINES;
 							break;
 
+						case 400:
+							return WAITRESS_RET_BAD_REQUEST;
+							break;
+
 						case 403:
 							return WAITRESS_RET_FORBIDDEN;
 							break;
@@ -1086,6 +1098,12 @@ static WaitressReturn_t WaitressReceiveResponse (WaitressHandle_t *waith) {
 				/* go on */
 				break;
 		}
+		if (waith->request.contentLengthKnown &&
+				waith->request.contentReceived >= waith->request.contentLength) {
+			/* don’t call read() again if we know the body’s size and have all
+			 * of it already */
+			break;
+		}
 		READ_RET (buf, WAITRESS_BUFFER_SIZE-1, &recvSize);
 	} while (recvSize > 0);
 
@@ -1105,6 +1123,7 @@ WaitressReturn_t WaitressFetchCall (WaitressHandle_t *waith) {
 	waith->request.dataHandler = WaitressHandleIdentity;
 	waith->request.read = WaitressOrdinaryRead;
 	waith->request.write = WaitressOrdinaryWrite;
+	waith->request.contentLengthKnown = false;
 
 	if (waith->url.tls) {
 		gnutls_init (&waith->request.tlsSession, GNUTLS_CLIENT);
@@ -1227,8 +1246,8 @@ const char *WaitressErrorToStr (WaitressReturn_t wRet) {
 			return "TLS handshake failed.";
 			break;
 
-		case WAITRESS_RET_TLS_TRUSTFILE_ERR:
-			return "Loading root certificates failed.";
+		case WAITRESS_RET_TLS_FINGERPRINT_MISMATCH:
+			return "TLS fingerprint mismatch.";
 			break;
 
 		default:

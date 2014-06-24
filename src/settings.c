@@ -130,6 +130,7 @@ void BarSettingsRead (BarSettings_t *settings) {
 	settings->autoselect = true;
 	settings->history = 5;
 	settings->volume = 0;
+	settings->maxPlayerErrors = 5;
 	settings->sortOrder = BAR_SORT_NAME_AZ;
 	settings->loveIcon = strdup (" <3");
 	settings->banIcon = strdup (" </3");
@@ -252,6 +253,8 @@ void BarSettingsRead (BarSettings_t *settings) {
 				settings->eventCmd = strdup (val);
 			} else if (streq ("history", key)) {
 				settings->history = atoi (val);
+			} else if (streq ("max_player_errors", key)) {
+				settings->maxPlayerErrors = atoi (val);
 			} else if (streq ("audio_file_dir", key)) {
 				free (settings->audioFileDir);
 				settings->audioFileDir = strdup(val);

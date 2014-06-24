@@ -7,29 +7,21 @@ INCDIR:=${PREFIX}/include
 MANDIR:=${PREFIX}/share/man
 DYNLINK:=0
 
-MD5SUM=md5sum
-AWK=awk
-PATCH=patch
-TAR=tar
-OSNAME=$(shell uname)
-
 # Respect environment variables set by user; does not work with :=
 ifeq (${CFLAGS},)
 	CFLAGS=-O2 -DNDEBUG
 endif
 ifeq (${CC},cc)
-	CC=c99
+	OS := $(shell uname)
+	ifeq (${OS},Darwin)
+		CC=gcc -std=c99
+	else
+		CC=c99
+	endif
 endif
 
-ifeq ($(OSNAME), Darwin)
-	CC=clang
-	CFLAGS=-std=c99 -O2 -DNDEBUG -I/usr/local/include
-	LDFLAGS=-L/usr/local/lib
-	MD5SUM=md5
-endif
-
-PIANOBAR_DIR=src
-PIANOBAR_SRC=\
+PIANOBAR_DIR:=src
+PIANOBAR_SRC:=\
 		${PIANOBAR_DIR}/main.c \
 		${PIANOBAR_DIR}/player.c \
 		${PIANOBAR_DIR}/settings.c \
@@ -42,7 +34,7 @@ PIANOBAR_SRC=\
 		${PIANOBAR_DIR}/fly_id3.c \
 		${PIANOBAR_DIR}/fly_misc.c \
 		${PIANOBAR_DIR}/fly_mp4.c
-PIANOBAR_HDR=\
+PIANOBAR_HDR:=\
 		${PIANOBAR_DIR}/player.h \
 		${PIANOBAR_DIR}/settings.h \
 		${PIANOBAR_DIR}/terminal.h \
@@ -55,57 +47,57 @@ PIANOBAR_HDR=\
 		${PIANOBAR_DIR}/fly_id3.h \
 		${PIANOBAR_DIR}/fly_misc.h \
 		${PIANOBAR_DIR}/fly_mp4.h
-PIANOBAR_OBJ=${PIANOBAR_SRC:.c=.o}
+PIANOBAR_OBJ:=${PIANOBAR_SRC:.c=.o}
 
-LIBPIANO_DIR=src/libpiano
-LIBPIANO_SRC=\
+LIBPIANO_DIR:=src/libpiano
+LIBPIANO_SRC:=\
 		${LIBPIANO_DIR}/crypt.c \
 		${LIBPIANO_DIR}/piano.c \
 		${LIBPIANO_DIR}/request.c \
 		${LIBPIANO_DIR}/response.c
-LIBPIANO_HDR=\
+LIBPIANO_HDR:=\
 		${LIBPIANO_DIR}/config.h \
 		${LIBPIANO_DIR}/crypt.h \
 		${LIBPIANO_DIR}/piano.h \
 		${LIBPIANO_DIR}/piano_private.h
-LIBPIANO_OBJ=${LIBPIANO_SRC:.c=.o}
-LIBPIANO_RELOBJ=${LIBPIANO_SRC:.c=.lo}
-LIBPIANO_INCLUDE=${LIBPIANO_DIR}
+LIBPIANO_OBJ:=${LIBPIANO_SRC:.c=.o}
+LIBPIANO_RELOBJ:=${LIBPIANO_SRC:.c=.lo}
+LIBPIANO_INCLUDE:=${LIBPIANO_DIR}
 
-LIBWAITRESS_DIR=src/libwaitress
-LIBWAITRESS_SRC=${LIBWAITRESS_DIR}/waitress.c
-LIBWAITRESS_HDR=\
+LIBWAITRESS_DIR:=src/libwaitress
+LIBWAITRESS_SRC:=${LIBWAITRESS_DIR}/waitress.c
+LIBWAITRESS_HDR:=\
 		${LIBWAITRESS_DIR}/config.h \
 		${LIBWAITRESS_DIR}/waitress.h
-LIBWAITRESS_OBJ=${LIBWAITRESS_SRC:.c=.o}
-LIBWAITRESS_RELOBJ=${LIBWAITRESS_SRC:.c=.lo}
-LIBWAITRESS_INCLUDE=${LIBWAITRESS_DIR}
+LIBWAITRESS_OBJ:=${LIBWAITRESS_SRC:.c=.o}
+LIBWAITRESS_RELOBJ:=${LIBWAITRESS_SRC:.c=.lo}
+LIBWAITRESS_INCLUDE:=${LIBWAITRESS_DIR}
 
 ifeq (${DISABLE_FAAD}, 1)
-	LIBFAAD_CFLAGS=
-	LIBFAAD_LDFLAGS=
+	LIBFAAD_CFLAGS:=
+	LIBFAAD_LDFLAGS:=
 else
-	LIBFAAD_CFLAGS=-DENABLE_FAAD
-	LIBFAAD_LDFLAGS=-lfaad
+	LIBFAAD_CFLAGS:=-DENABLE_FAAD
+	LIBFAAD_LDFLAGS:=-lfaad
 endif
 
 ifeq (${DISABLE_MAD}, 1)
-	LIBMAD_CFLAGS=
-	LIBMAD_LDFLAGS=
+	LIBMAD_CFLAGS:=
+	LIBMAD_LDFLAGS:=
 else
-	LIBMAD_CFLAGS=-DENABLE_MAD
+	LIBMAD_CFLAGS:=-DENABLE_MAD
 	LIBMAD_CFLAGS+=$(shell pkg-config --cflags mad)
-	LIBMAD_LDFLAGS=$(shell pkg-config --libs mad)
+	LIBMAD_LDFLAGS:=$(shell pkg-config --libs mad)
 endif
 
-LIBGNUTLS_CFLAGS=$(shell pkg-config --cflags gnutls)
-LIBGNUTLS_LDFLAGS=$(shell pkg-config --libs gnutls)
+LIBGNUTLS_CFLAGS:=$(shell pkg-config --cflags gnutls)
+LIBGNUTLS_LDFLAGS:=$(shell pkg-config --libs gnutls)
 
-LIBGCRYPT_CFLAGS=
-LIBGCRYPT_LDFLAGS=-lgcrypt
+LIBGCRYPT_CFLAGS:=
+LIBGCRYPT_LDFLAGS:=-lgcrypt
 
-LIBJSONC_CFLAGS=$(shell pkg-config --cflags json)
-LIBJSONC_LDFLAGS=$(shell pkg-config --libs json)
+LIBJSONC_CFLAGS:=$(shell pkg-config --cflags json-c 2>/dev/null || pkg-config --cflags json)
+LIBJSONC_LDFLAGS:=$(shell pkg-config --libs json-c 2>/dev/null || pkg-config --libs json)
 
 ifeq (${DISABLE_ID3TAG}, 1)
 	LIBID3TAG_CFLAGS=
@@ -120,7 +112,8 @@ ifeq (${DYNLINK},1)
 pianobarfly: ${PIANOBAR_OBJ} ${PIANOBAR_HDR} libpiano.so.0
 	@echo "  LINK  $@"
 	@${CC} -o $@ ${PIANOBAR_OBJ} ${LDFLAGS} -lao -lpthread -lm -L. -lpiano \
-			${LIBFAAD_LDFLAGS} ${LIBMAD_LDFLAGS} ${LIBGNUTLS_LDFLAGS} ${LIBID3TAG_LDFLAGS}
+			${LIBFAAD_LDFLAGS} ${LIBMAD_LDFLAGS} ${LIBGNUTLS_LDFLAGS} \
+			${LIBGCRYPT_LDFLAGS} ${LIBID3TAG_LDFLAGS}
 else
 pianobarfly: ${PIANOBAR_OBJ} ${PIANOBAR_HDR} ${LIBPIANO_OBJ} ${LIBWAITRESS_OBJ} \
 		${LIBWAITRESS_HDR}
@@ -182,17 +175,14 @@ clean:
 all: pianobarfly
 
 debug: pianobarfly
-debug: CFLAGS=-g -pedantic -Wall -Wextra
-debug: CFLAGS+=-Wno-deprecated -Wno-unused-parameter -Wno-sign-compare
-debug: CFLAGS+=-I/usr/local/include
-#debug: CFLAGS=-pedantic -ggdb -Wall -Wmissing-declarations -Wshadow -Wcast-qual \
-#		-Wformat=2 -Winit-self -Wignored-qualifiers -Wmissing-include-dirs \
-#		-Wfloat-equal -Wundef -Wpointer-arith -Wtype-limits -Wbad-function-cast \
-#		-Wcast-align -Wclobbered -Wempty-body -Wjump-misses-init -Waddress \
-#		-Wlogical-op -Waggregate-return -Wstrict-prototypes \
-#		-Wold-style-declaration -Wold-style-definition -Wmissing-parameter-type \
-#		-Wmissing-prototypes -Wmissing-field-initializers -Woverride-init \
-#		-Wpacked -Wredundant-decls -Wnested-externs
+debug: CFLAGS=-pedantic -ggdb -Wall -Wmissing-declarations -Wshadow -Wcast-qual \
+		-Wformat=2 -Winit-self -Wignored-qualifiers -Wmissing-include-dirs \
+		-Wfloat-equal -Wundef -Wpointer-arith -Wtype-limits -Wbad-function-cast \
+		-Wcast-align -Wclobbered -Wempty-body -Wjump-misses-init -Waddress \
+		-Wlogical-op -Waggregate-return -Wstrict-prototypes \
+		-Wold-style-declaration -Wold-style-definition -Wmissing-parameter-type \
+		-Wmissing-prototypes -Wmissing-field-initializers -Woverride-init \
+		-Wpacked -Wredundant-decls -Wnested-externs
 # warnings for gcc 4.5; disabled:
 # -Wswitch-default: too many bogus warnings
 # -Wswitch-enum: too many bogus warnings
@@ -225,18 +215,17 @@ else
 install: pianobarfly
 endif
 	install -d ${DESTDIR}/${BINDIR}/
-	install -s -m755 pianobarfly ${DESTDIR}/${BINDIR}/
+	install -m755 pianobarfly ${DESTDIR}/${BINDIR}/
 	install -d ${DESTDIR}/${MANDIR}/man1/
 	install -m644 contrib/pianobarfly.1 ${DESTDIR}/${MANDIR}/man1/
 
 install-libpiano:
 	install -d ${DESTDIR}/${LIBDIR}/
 	install -m644 libpiano.so.0.0.0 ${DESTDIR}/${LIBDIR}/
-	ln -s -f libpiano.so.0.0.0 ${DESTDIR}/${LIBDIR}/libpiano.so.0
-	ln -s -f libpiano.so.0 ${DESTDIR}/${LIBDIR}/libpiano.so
+	ln -s libpiano.so.0.0.0 ${DESTDIR}/${LIBDIR}/libpiano.so.0
+	ln -s libpiano.so.0 ${DESTDIR}/${LIBDIR}/libpiano.so
 	install -m644 libpiano.a ${DESTDIR}/${LIBDIR}/
 	install -d ${DESTDIR}/${INCDIR}/
 	install -m644 src/libpiano/piano.h ${DESTDIR}/${INCDIR}/
-	ldconfig
 
 .PHONY: install install-libpiano test debug all

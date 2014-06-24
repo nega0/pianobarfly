@@ -1,7 +1,6 @@
-*.d
-*.d.*
 *.o
 *.lo
+*.d
 # vim swap files
 .*.sw*
 pianobarfly
