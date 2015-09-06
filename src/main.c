@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2008-2012
+Copyright (c) 2008-2013
 	Lars-Dominik Braun <lars@6xq.net>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -146,7 +146,7 @@ static bool BarMainGetLoginCredentials (BarSettings_t *settings,
 
 				close (pipeFd[1]);
 				memset (passBuf, 0, sizeof (passBuf));
-				status = read (pipeFd[0], passBuf, sizeof (passBuf)-1);
+				read (pipeFd[0], passBuf, sizeof (passBuf)-1);
 				close (pipeFd[0]);
 
 				/* drop trailing newlines */
@@ -269,8 +269,10 @@ static void BarMainStartPlayback (BarApp_t *app, pthread_t *playerThread) {
 		app->player.scale = BarPlayerCalcScale (app->player.gain + app->settings.volume);
 		app->player.audioFormat = app->playlist->audioFormat;
 		app->player.settings = &app->settings;
-		strcpy(app->player.fly.stationName, app->curStation->name);
+		app->player.songDuration = app->playlist->length * 1000;
 		pthread_mutex_init (&app->player.pauseMutex, NULL);
+		pthread_cond_init (&app->player.pauseCond, NULL);
+		strcpy(app->player.fly.stationName, app->curStation->name);
 
 		/* Open the audio file. */
 		BarFlyOpen (&app->player.fly, app->playlist, &app->settings);
@@ -301,10 +303,18 @@ static void BarMainPlayerCleanup (BarApp_t *app, pthread_t *playerThread) {
 	/* FIXME: pthread_join blocks everything if network connection
 	 * is hung up e.g. */
 	pthread_join (*playerThread, &threadRet);
+	pthread_cond_destroy (&app->player.pauseCond);
 	pthread_mutex_destroy (&app->player.pauseMutex);
 
-	/* don't continue playback if thread reports error */
-	if (threadRet != (void *) PLAYER_RET_OK) {
+	if (threadRet == (void *) PLAYER_RET_OK) {
+		app->playerErrors = 0;
+	} else if (threadRet == (void *) PLAYER_RET_SOFTFAIL) {
+		++app->playerErrors;
+		if (app->playerErrors >= app->settings.maxPlayerErrors) {
+			/* don't continue playback if thread reports too many error */
+			app->curStation = NULL;
+		}
+	} else {
 		app->curStation = NULL;
 	}
 
@@ -327,7 +337,7 @@ static void BarMainPrintTime (BarApp_t *app) {
 		sign = POSITIVE;
 		songRemaining = -songRemaining;
 	}
-	BarUiMsg (&app->settings, MSG_TIME, "%c%02i:%02i/%02i:%02i   * %s\r",
+	BarUiMsg (&app->settings, MSG_TIME, "%c%02i:%02i/%02li:%02li   * %s\r",
 			(sign == POSITIVE ? '+' : '-'),
 			songRemaining / 60, songRemaining % 60,
 			app->player.songDuration / BAR_PLAYER_MS_TO_S_FACTOR / 60,
@@ -372,8 +382,8 @@ static void BarMainLoop (BarApp_t *app) {
 			/* what's next? */
 			if (app->playlist != NULL) {
 				PianoSong_t *histsong = app->playlist;
-				app->playlist = app->playlist->next;
-				histsong->next = NULL;
+				app->playlist = PianoListNextP (app->playlist);
+				histsong->head.next = NULL;
 				BarUiHistoryPrepend (app, histsong);
 			}
 			if (app->playlist == NULL) {
@@ -388,8 +398,7 @@ static void BarMainLoop (BarApp_t *app) {
 		BarMainHandleUserInput (app);
 
 		/* show time */
-		if (app->player.mode >= PLAYER_SAMPLESIZE_INITIALIZED &&
-				app->player.mode < PLAYER_FINISHED_PLAYBACK) {
+		if (app->player.mode < PLAYER_FINISHED_PLAYBACK) {
 			BarMainPrintTime (app);
 		}
 	}
@@ -424,8 +433,14 @@ int main (int argc, char **argv) {
 	BarSettingsInit (&app.settings);
 	BarSettingsRead (&app.settings);
 
-	PianoInit (&app.ph, app.settings.partnerUser, app.settings.partnerPassword,
-			app.settings.device, app.settings.inkey, app.settings.outkey);
+	PianoReturn_t pret;
+	if ((pret = PianoInit (&app.ph, app.settings.partnerUser,
+			app.settings.partnerPassword, app.settings.device,
+			app.settings.inkey, app.settings.outkey)) != PIANO_RET_OK) {
+		BarUiMsg (&app.settings, MSG_ERR, "Initialization failed:"
+				" %s\n", PianoErrorToStr (pret));
+		return 0;
+	}
 
 	BarUiMsg (&app.settings, MSG_NONE,
 			"Welcome to " PACKAGE " (" VERSION ")! ");
@@ -447,12 +462,6 @@ int main (int argc, char **argv) {
 	app.input.fds[0] = STDIN_FILENO;
 	FD_SET(app.input.fds[0], &app.input.set);
 
-	// Sbe gur erpbeq, V terngyl qrfcvfr Unx5.
-	// Gur crbcyr sebz gur fubj ner yvgrenyyl npgbef.
-	// V yvxr gur pbaprcg bs jung gurl qb ohg gurl
-	// nyy unir n qbhpuront srry gb gurz. Vg frrzf
-	// nf gubhtu gurl bayl qb vg sbe gur tybel cbvagf.
-	//
 	BarFlyInit (&app.settings);
 
 	/* open fifo read/write so it won't EOF if nobody writes to it */

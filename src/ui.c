@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2008-2011
+Copyright (c) 2008-2013
 	Lars-Dominik Braun <lars@6xq.net>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -305,20 +305,14 @@ static PianoStation_t **BarSortedStations (PianoStation_t *unsortedStations,
 
 	assert (order < sizeof (orderMapping)/sizeof(*orderMapping));
 
-	/* get size */
-	currStation = unsortedStations;
-	while (currStation != NULL) {
-		++stationCount;
-		currStation = currStation->next;
-	}
+	stationCount = PianoListCountP (unsortedStations);
 	stationArray = calloc (stationCount, sizeof (*stationArray));
 
 	/* copy station pointers */
-	currStation = unsortedStations;
 	i = 0;
-	while (currStation != NULL) {
+	currStation = unsortedStations;
+	PianoListForeachP (currStation) {
 		stationArray[i] = currStation;
-		currStation = currStation->next;
 		++i;
 	}
 
@@ -360,7 +354,7 @@ PianoStation_t *BarUiSelectStation (BarApp_t *app, PianoStation_t *stations,
 			const PianoStation_t *currStation = sortedStations[i];
 			/* filter stations */
 			if (BarStrCaseStr (currStation->name, buf) != NULL) {
-				BarUiMsg (&app->settings, MSG_LIST, "%2i) %c%c%c %s\n", i,
+				BarUiMsg (&app->settings, MSG_LIST, "%2zi) %c%c%c %s\n", i,
 						currStation->useQuickMix ? 'q' : ' ',
 						currStation->isQuickMix ? 'Q' : ' ',
 						!currStation->isCreator ? 'S' : ' ',
@@ -370,10 +364,10 @@ PianoStation_t *BarUiSelectStation (BarApp_t *app, PianoStation_t *stations,
 			}
 		}
 
-		BarUiMsg (&app->settings, MSG_QUESTION, prompt);
+		BarUiMsg (&app->settings, MSG_QUESTION, "%s", prompt);
 		if (autoselect && displayCount == 1 && stationCount != 1) {
 			/* auto-select last remaining station */
-			BarUiMsg (&app->settings, MSG_NONE, "%i\n", lastDisplayed);
+			BarUiMsg (&app->settings, MSG_NONE, "%zi\n", lastDisplayed);
 			retStation = sortedStations[lastDisplayed];
 		} else {
 			if (BarReadlineStr (buf, sizeof (buf), &app->input,
@@ -422,11 +416,7 @@ PianoSong_t *BarUiSelectSong (const BarSettings_t *settings,
 
 		if (isnumeric (buf)) {
 			unsigned long i = strtoul (buf, NULL, 0);
-			tmpSong = startSong;
-			while (tmpSong != NULL && i > 0) {
-				tmpSong = tmpSong->next;
-				i--;
-			}
+			tmpSong = PianoListGetP (startSong, i);
 		}
 	} while (tmpSong == NULL);
 
@@ -449,12 +439,12 @@ PianoArtist_t *BarUiSelectArtist (BarApp_t *app, PianoArtist_t *startArtist) {
 		/* print all artists */
 		i = 0;
 		tmpArtist = startArtist;
-		while (tmpArtist != NULL) {
+		PianoListForeachP (tmpArtist) {
 			if (BarStrCaseStr (tmpArtist->name, buf) != NULL) {
-				BarUiMsg (&app->settings, MSG_LIST, "%2u) %s\n", i, tmpArtist->name);
+				BarUiMsg (&app->settings, MSG_LIST, "%2lu) %s\n", i,
+						tmpArtist->name);
 			}
 			i++;
-			tmpArtist = tmpArtist->next;
 		}
 
 		BarUiMsg (&app->settings, MSG_QUESTION, "Select artist: ");
@@ -465,11 +455,7 @@ PianoArtist_t *BarUiSelectArtist (BarApp_t *app, PianoArtist_t *startArtist) {
 
 		if (isnumeric (buf)) {
 			i = strtoul (buf, NULL, 0);
-			tmpArtist = startArtist;
-			while (tmpArtist != NULL && i > 0) {
-				tmpArtist = tmpArtist->next;
-				i--;
-			}
+			tmpArtist = PianoListGetP (startArtist, i);
 		}
 	} while (tmpArtist == NULL);
 
@@ -491,7 +477,7 @@ char *BarUiSelectMusicId (BarApp_t *app, PianoStation_t *station,
 	PianoArtist_t *tmpArtist;
 	PianoSong_t *tmpSong;
 
-	BarUiMsg (&app->settings, MSG_QUESTION, msg);
+	BarUiMsg (&app->settings, MSG_QUESTION, "%s", msg);
 	if (BarReadlineStr (lineBuf, sizeof (lineBuf), &app->input,
 			BAR_RL_DEFAULT) > 0) {
 		PianoReturn_t pRet;
@@ -546,76 +532,6 @@ char *BarUiSelectMusicId (BarApp_t *app, PianoStation_t *station,
 	}
 
 	return musicId;
-}
-
-/*	browse genre stations and create shared station
- *	@param app handle
- */
-void BarStationFromGenre (BarApp_t *app) {
-	PianoReturn_t pRet;
-	WaitressReturn_t wRet;
-	PianoGenreCategory_t *curCat;
-	PianoGenre_t *curGenre;
-	int i;
-
-	/* receive genre stations list if not yet available */
-	if (app->ph.genreStations == NULL) {
-		BarUiMsg (&app->settings, MSG_INFO, "Receiving genre stations... ");
-		if (!BarUiPianoCall (app, PIANO_REQUEST_GET_GENRE_STATIONS, NULL,
-				&pRet, &wRet)) {
-			return;
-		}
-	}
-
-	/* print all available categories */
-	curCat = app->ph.genreStations;
-	i = 0;
-	while (curCat != NULL) {
-		BarUiMsg (&app->settings, MSG_LIST, "%2i) %s\n", i, curCat->name);
-		i++;
-		curCat = curCat->next;
-	}
-
-	do {
-		/* select category or exit */
-		BarUiMsg (&app->settings, MSG_QUESTION, "Select category: ");
-		if (BarReadlineInt (&i, &app->input) == 0) {
-			return;
-		}
-		curCat = app->ph.genreStations;
-		while (curCat != NULL && i > 0) {
-			curCat = curCat->next;
-			i--;
-		}
-	} while (curCat == NULL);
-	
-	/* print all available stations */
-	curGenre = curCat->genres;
-	i = 0;
-	while (curGenre != NULL) {
-		BarUiMsg (&app->settings, MSG_LIST, "%2i) %s\n", i, curGenre->name);
-		i++;
-		curGenre = curGenre->next;
-	}
-
-	do {
-		BarUiMsg (&app->settings, MSG_QUESTION, "Select genre: ");
-		if (BarReadlineInt (&i, &app->input) == 0) {
-			return;
-		}
-		curGenre = curCat->genres;
-		while (curGenre != NULL && i > 0) {
-			curGenre = curGenre->next;
-			i--;
-		}
-	} while (curGenre == NULL);
-
-	/* create station */
-	PianoRequestDataCreateStation_t reqData;
-	reqData.token = curGenre->musicId;
-	reqData.type = PIANO_MUSICTYPE_INVALID;
-	BarUiMsg (&app->settings, MSG_INFO, "Adding shared station \"%s\"... ", curGenre->name);
-	BarUiPianoCall (app, PIANO_REQUEST_CREATE_STATION, &reqData, &pRet, &wRet);
 }
 
 /*	replaces format characters (%x) in format string with custom strings
@@ -735,9 +651,9 @@ inline void BarUiPrintSong (const BarSettings_t *settings,
 size_t BarUiListSongs (const BarSettings_t *settings,
 		const PianoSong_t *song, const char *filter) {
 	size_t i = 0;
-	char digits[4];
+	char digits[8];
 
-	while (song != NULL) {
+	PianoListForeachP (song) {
 		if (filter == NULL ||
 				(filter != NULL && (BarStrCaseStr (song->artist, filter) != NULL ||
 				BarStrCaseStr (song->title, filter) != NULL))) {
@@ -753,7 +669,6 @@ size_t BarUiListSongs (const BarSettings_t *settings,
 			BarUiMsg (settings, MSG_LIST, "%s", outstr);
 		}
 		i++;
-		song = song->next;
 	}
 
 	return i;
@@ -876,32 +791,26 @@ void BarUiStartEventCmd (const BarSettings_t *settings, const char *type,
 	}
 }
 
-/*	prepend song to history, must not be a list of songs as ->next is modified!
+/*	prepend song to history
  */
 void BarUiHistoryPrepend (BarApp_t *app, PianoSong_t *song) {
+	assert (app != NULL);
+	assert (song != NULL);
+	/* make sure it's a single song */
+	assert (PianoListNextP (song) == NULL);
+
 	if (app->settings.history != 0) {
-		PianoSong_t *tmpSong;
-
-		song->next = app->songHistory;
-		app->songHistory = song;
-
-		/* limit history's length */
-		/* start with 1, so we're stopping at n-1 and have the
-		 * chance to set ->next = NULL */
-		unsigned int i = 1;
-		tmpSong = app->songHistory;
-		while (i < app->settings.history && tmpSong != NULL) {
-			tmpSong = tmpSong->next;
-			++i;
-		}
-		/* if too many songs in history... */
-		if (tmpSong != NULL) {
-			PianoSong_t *delSong = tmpSong->next;
-			tmpSong->next = NULL;
-			if (delSong != NULL) {
-				PianoDestroyPlaylist (delSong);
+		app->songHistory = PianoListPrependP (app->songHistory, song);
+		PianoSong_t *del;
+		do {
+			del = PianoListGetP (app->songHistory, app->settings.history);
+			if (del != NULL) {
+				app->songHistory = PianoListDeleteP (app->songHistory, del);
+				PianoDestroyPlaylist (del);
+			} else {
+				break;
 			}
-		}
+		} while (true);
 	} else {
 		PianoDestroyPlaylist (song);
 	}

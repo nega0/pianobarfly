@@ -318,7 +318,7 @@ static int _BarFlyFileDelete(BarFly_t const* fly,
 			if ((status != 0) && (errno != ENOTEMPTY) && (errno != EEXIST)) {
 				BarUiMsg(settings, MSG_ERR,
 						"Failed to delete the empty artist directory "
-						"(%s) (%d:%s).\n", dir_path, errno, strerror);
+						"(%s) (%d:%s).\n", dir_path, errno, strerror(errno));
 				goto error;
 
 			}
@@ -440,7 +440,7 @@ static char* _BarFlyFileGetPath(char const* artist, char const* album,
 	path = malloc(path_length + 1);
 	if (path == NULL) {
 		BarUiMsg(settings, MSG_ERR,
-				"Error allocating memory (%d bytes) (%d:%s).\n",
+				"Error allocating memory (%li bytes) (%d:%s).\n",
 				path_length + 1, errno, strerror(errno));
 		goto error;
 	}
@@ -535,7 +535,7 @@ static int _BarFlyFileOpen(FILE** file, char const* path,
 		status = mkdir(dir_path, 0755);
 		if ((status == -1) && (errno != EEXIST)) {
 			BarUiMsg(settings, MSG_ERR, "Error creating a parent directory of "
-					"the audio file (%s) (%d:%s).\n", errno, strerror(errno));
+					"the audio file (%d:%s).\n", errno, strerror(errno));
 			exit_status = -1;
 			goto error;
 		}

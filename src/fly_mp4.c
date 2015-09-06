@@ -509,7 +509,7 @@ static int _BarFlyMp4AtomAddChild(BarFlyMp4Atom_t* parent,
 	temp = realloc(parent->children,
 			sizeof(BarFlyMp4Atom_t*) * (parent->child_count + 1));
 	if (temp == NULL) {
-		BarUiMsg(settings, MSG_ERR, "Error allocating memory (%d bytes).\n",
+		BarUiMsg(settings, MSG_ERR, "Error allocating memory (%li bytes).\n",
 				sizeof(BarFlyMp4Atom_t*) * (parent->child_count + 1));
 		goto error;
 	}
@@ -568,7 +568,7 @@ static int _BarFlyMp4AtomAppendData(BarFlyMp4Atom_t* atom, FILE* mp4_file,
 		 */
 		temp = realloc(atom->data, sizeof(uint8_t) * (atom->data_size + size));
 		if (temp == NULL) {
-			BarUiMsg(settings, MSG_ERR, "Error allocating memory (%d bytes).\n",
+			BarUiMsg(settings, MSG_ERR, "Error allocating memory (%li bytes).\n",
 					sizeof(uint8_t) * (atom->data_size + size));
 			goto error;
 		}
@@ -664,7 +664,7 @@ static BarFlyMp4Atom_t* _BarFlyMp4AtomOpen(char const* name, long offset,
 	 */
 	atom = calloc(1, sizeof(BarFlyMp4Atom_t));
 	if (atom == NULL) {
-		BarUiMsg(settings, MSG_ERR, "Error allocating memory (%d bytes).\n",
+		BarUiMsg(settings, MSG_ERR, "Error allocating memory (%li bytes).\n",
 				sizeof(BarFlyMp4Atom_t));
 		goto error;
 	}
@@ -1027,7 +1027,7 @@ static int _BarFlyMp4FileParseAtomData(FILE* mp4_file, BarFlyMp4Atom_t* atom,
 				tmp_buffer = malloc(sizeof(uint8_t) * atom->data_size);
 				if (tmp_buffer == NULL) {
 					BarUiMsg(settings, MSG_ERR,
-							"Error allocating memory (%d bytes).\n",
+							"Error allocating memory (%li bytes).\n",
 							sizeof(uint8_t) * atom->data_size);
 					goto error;
 				}
@@ -1111,7 +1111,7 @@ static int _BarFlyMp4FileParseAtomSize(FILE* mp4_file, size_t* size,
 	 */
 	if (*size < BAR_FLY_MP4_ATOM_MIN_LENGTH) {
 		BarUiMsg(settings, MSG_ERR,
-				"Invalid atom size (minimum = %d, size = %d).\n",
+				"Invalid atom size (minimum = %d, size = %li).\n",
 				BAR_FLY_MP4_ATOM_MIN_LENGTH, *size);
 		goto error;
 	}
@@ -1229,7 +1229,7 @@ static int _BarFlyMp4TagAddAtom(BarFlyMp4Tag_t* tag, char const* parent_path,
 		children = realloc(tag->atoms,
 				sizeof(BarFlyMp4Atom_t*) * (tag->atom_count + 1));
 		if (children == NULL) {
-			BarUiMsg(settings, MSG_ERR, "Error allocating memory (%d bytes).\n",
+			BarUiMsg(settings, MSG_ERR, "Error allocating memory (%li bytes).\n",
 					sizeof(BarFlyMp4Atom_t*) * (tag->atom_count + 1));
 			goto error;
 		}
@@ -1847,7 +1847,7 @@ BarFlyMp4Tag_t* BarFlyMp4TagOpen(char const* file_path,
 	 */
 	tag = calloc(1, sizeof(BarFlyMp4Tag_t));
 	if (tag == NULL) {
-		BarUiMsg(settings, MSG_ERR, "Error allocating memory (%d bytes).\n",
+		BarUiMsg(settings, MSG_ERR, "Error allocating memory (%li bytes).\n",
 				sizeof(BarFlyMp4Tag_t));
 		goto error;
 	}

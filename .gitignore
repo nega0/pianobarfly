@@ -1,12 +1,12 @@
-*.d
-*.d.*
 *.o
 *.lo
+*.d
 # vim swap files
 .*.sw*
 pianobarfly
 libpiano.a
 libpiano.so*
+waitress-test
 mp3
 \#*
 TAGS

@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2009-2011
+Copyright (c) 2009-2013
 	Lars-Dominik Braun <lars@6xq.net>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -62,23 +62,26 @@ typedef struct {
 typedef enum {
 	WAITRESS_RET_ERR = 0,
 	WAITRESS_RET_OK,
+	WAITRESS_RET_CB_ABORT,
+	/* http error codes */
 	WAITRESS_RET_STATUS_UNKNOWN,
 	WAITRESS_RET_NOTFOUND,
 	WAITRESS_RET_FORBIDDEN,
+	WAITRESS_RET_BAD_REQUEST,
+	/* socket errors */
 	WAITRESS_RET_CONNECT_REFUSED,
 	WAITRESS_RET_SOCK_ERR,
 	WAITRESS_RET_GETADDR_ERR,
-	WAITRESS_RET_CB_ABORT,
-	WAITRESS_RET_PARTIAL_FILE,
 	WAITRESS_RET_TIMEOUT,
 	WAITRESS_RET_READ_ERR,
 	WAITRESS_RET_CONNECTION_CLOSED,
-	WAITRESS_RET_DECODING_ERR,
-	WAITRESS_RET_TLS_DISABLED,
 	WAITRESS_RET_TLS_WRITE_ERR,
 	WAITRESS_RET_TLS_READ_ERR,
+	/* protocol errors */
+	WAITRESS_RET_PARTIAL_FILE,
+	WAITRESS_RET_DECODING_ERR,
 	WAITRESS_RET_TLS_HANDSHAKE_ERR,
-	WAITRESS_RET_TLS_TRUSTFILE_ERR,
+	WAITRESS_RET_TLS_FINGERPRINT_MISMATCH,
 } WaitressReturn_t;
 
 /*	reusable handle
@@ -107,6 +110,8 @@ typedef struct {
 		WaitressReturn_t readWriteRet;
 
 		size_t contentLength, contentReceived, chunkSize;
+		bool contentLengthKnown;
+		enum {CHUNKSIZE = 0, DATA = 1} chunkedState;
 
 		char *buf;
 		/* first argument is WaitressHandle_t, but that's not defined yet */

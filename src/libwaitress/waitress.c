@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2009-2011
+Copyright (c) 2009-2013
 	Lars-Dominik Braun <lars@6xq.net>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -661,64 +661,69 @@ static WaitressHandlerReturn_t WaitressHandleIdentity (void *data, char *buf,
 	}
 }
 
-/*	chunked encoding handler. buf must be \0-terminated, size does not include
- *	trailing \0.
+/*	chunked encoding handler
  */
 static WaitressHandlerReturn_t WaitressHandleChunked (void *data, char *buf,
 		const size_t size) {
 	assert (data != NULL);
 	assert (buf != NULL);
 
-	WaitressHandle_t *waith = data;
-	char *content = buf, *nextContent;
+	WaitressHandle_t * const waith = data;
+	size_t pos = 0;
 
-	assert (waith != NULL);
-	assert (buf != NULL);
-
-	while (1) {
-		if (waith->request.chunkSize > 0) {
-			const size_t remaining = size-(content-buf);
-
-			if (remaining >= waith->request.chunkSize) {
-				if (WaitressHandleIdentity (waith, content,
-						waith->request.chunkSize) == WAITRESS_HANDLER_ABORTED) {
-					return WAITRESS_HANDLER_ABORTED;
-				}
-
-				content += waith->request.chunkSize;
-				if (content[0] == '\r' && content[1] == '\n') {
-					content += 2;
+	while (pos < size) {
+		switch (waith->request.chunkedState) {
+			case CHUNKSIZE:
+				/* Poor man’s hex to integer. This avoids another buffer that
+				 * fills until the terminating \r\n is received. */
+				if (buf[pos] >= '0' && buf[pos] <= '9') {
+					waith->request.chunkSize <<= 4;
+					waith->request.chunkSize |= buf[pos] & 0xf;
+				} else if (buf[pos] >= 'a' && buf[pos] <= 'f') {
+					waith->request.chunkSize <<= 4;
+					waith->request.chunkSize |= (buf[pos]+9) & 0xf;
+				} else if (buf[pos] == '\r') {
+					/* ignore */
+				} else if (buf[pos] == '\n') {
+					waith->request.chunkedState = DATA;
+					/* last chunk has size 0 */
+					if (waith->request.chunkSize == 0) {
+						return WAITRESS_HANDLER_DONE;
+					}
 				} else {
+					/* everything else is a protocol violation */
 					return WAITRESS_HANDLER_ERR;
 				}
-				waith->request.chunkSize = 0;
-			} else {
-				if (WaitressHandleIdentity (waith, content, remaining) ==
-						WAITRESS_HANDLER_ABORTED) {
-					return WAITRESS_HANDLER_ABORTED;
-				}
-				waith->request.chunkSize -= remaining;
-				return WAITRESS_HANDLER_CONTINUE;
-			}
-		}
+				++pos;
+				break;
 
-		if ((nextContent = WaitressGetline (content)) != NULL) {
-			const long int chunkSize = strtol (content, NULL, 16);
-			if (chunkSize == 0) {
-				return WAITRESS_HANDLER_DONE;
-			} else if (chunkSize < 0) {
-				return WAITRESS_HANDLER_ERR;
-			} else {
-				waith->request.chunkSize = chunkSize;
-				content = nextContent;
-			}
-		} else {
-			return WAITRESS_HANDLER_ERR;
+			case DATA:
+				if (waith->request.chunkSize > 0) {
+					assert (size >= pos);
+					size_t payloadSize = size - pos;
+
+					if (payloadSize > waith->request.chunkSize) {
+						payloadSize = waith->request.chunkSize;
+					}
+					if (WaitressHandleIdentity (waith, &buf[pos],
+							payloadSize) == WAITRESS_HANDLER_ABORTED) {
+						return WAITRESS_HANDLER_ABORTED;
+					}
+					pos += payloadSize;
+					assert (waith->request.chunkSize >= payloadSize);
+					waith->request.chunkSize -= payloadSize;
+				} else {
+					/* next chunk size starts in the next line */
+					if (buf[pos] == '\n') {
+						waith->request.chunkedState = CHUNKSIZE;
+					}
+					++pos;
+				}
+				break;
 		}
 	}
 
-	assert (0);
-	return WAITRESS_HANDLER_ERR;
+	return WAITRESS_HANDLER_CONTINUE;
 }
 
 /*	handle http header
@@ -731,6 +736,7 @@ static void WaitressHandleHeader (WaitressHandle_t *waith, const char * const ke
 
 	if (strcaseeq (key, "Content-Length")) {
 		waith->request.contentLength = atol (value);
+		waith->request.contentLengthKnown = true;
 	} else if (strcaseeq (key, "Transfer-Encoding")) {
 		if (strcaseeq (value, "chunked")) {
 			waith->request.dataHandler = WaitressHandleChunked;
@@ -753,51 +759,52 @@ static int WaitressParseStatusline (const char * const line) {
 
 /*	verify server certificate
  */
-static int WaitressTlsVerify (const WaitressHandle_t *waith) {
+static WaitressReturn_t WaitressTlsVerify (const WaitressHandle_t *waith) {
 	gnutls_session_t session = waith->request.tlsSession;
 	unsigned int certListSize;
 	const gnutls_datum_t *certList;
 	gnutls_x509_crt_t cert;
 
 	if (gnutls_certificate_type_get (session) != GNUTLS_CRT_X509) {
-		return GNUTLS_E_CERTIFICATE_ERROR;
+		return WAITRESS_RET_TLS_HANDSHAKE_ERR;
 	}
 
 	if ((certList = gnutls_certificate_get_peers (session,
 			&certListSize)) == NULL) {
-		return GNUTLS_E_CERTIFICATE_ERROR;
+		return WAITRESS_RET_TLS_HANDSHAKE_ERR;
 	}
 
 	if (gnutls_x509_crt_init (&cert) != GNUTLS_E_SUCCESS) {
-		return GNUTLS_E_CERTIFICATE_ERROR;
+		return WAITRESS_RET_TLS_HANDSHAKE_ERR;
 	}
 
 	if (gnutls_x509_crt_import (cert, &certList[0],
 			GNUTLS_X509_FMT_DER) != GNUTLS_E_SUCCESS) {
-		return GNUTLS_E_CERTIFICATE_ERROR;
+		return WAITRESS_RET_TLS_HANDSHAKE_ERR;
 	}
 
 	char fingerprint[20];
 	size_t fingerprintSize = sizeof (fingerprint);
 	if (gnutls_x509_crt_get_fingerprint (cert, GNUTLS_DIG_SHA1, fingerprint,
 			&fingerprintSize) != 0) {
-		return GNUTLS_E_CERTIFICATE_ERROR;
+		return WAITRESS_RET_TLS_HANDSHAKE_ERR;
 	}
 
+	assert (waith->tlsFingerprint != NULL);
 	if (memcmp (fingerprint, waith->tlsFingerprint, sizeof (fingerprint)) != 0) {
-		return GNUTLS_E_CERTIFICATE_ERROR;
+		return WAITRESS_RET_TLS_FINGERPRINT_MISMATCH;
 	}
 
 	gnutls_x509_crt_deinit (cert);
 
-	return 0;
+	return WAITRESS_RET_OK;
 }
 
 /*	Connect to server
  */
 static WaitressReturn_t WaitressConnect (WaitressHandle_t *waith) {
-	struct addrinfo hints, *res;
-	int pollres;
+	WaitressReturn_t ret;
+	struct addrinfo hints, *gares;
 
 	memset (&hints, 0, sizeof hints);
 
@@ -807,55 +814,75 @@ static WaitressReturn_t WaitressConnect (WaitressHandle_t *waith) {
 	/* Use proxy? */
 	if (WaitressProxyEnabled (waith)) {
 		if (getaddrinfo (waith->proxy.host,
-				WaitressDefaultPort (&waith->proxy), &hints, &res) != 0) {
+				WaitressDefaultPort (&waith->proxy), &hints, &gares) != 0) {
 			return WAITRESS_RET_GETADDR_ERR;
 		}
 	} else {
 		if (getaddrinfo (waith->url.host,
-				WaitressDefaultPort (&waith->url), &hints, &res) != 0) {
+				WaitressDefaultPort (&waith->url), &hints, &gares) != 0) {
 			return WAITRESS_RET_GETADDR_ERR;
 		}
 	}
 
-	if ((waith->request.sockfd = socket (res->ai_family, res->ai_socktype,
-			res->ai_protocol)) == -1) {
-		freeaddrinfo (res);
-		return WAITRESS_RET_SOCK_ERR;
+	/* try all addresses */
+	for (struct addrinfo *gacurr = gares; gacurr != NULL;
+			gacurr = gacurr->ai_next) {
+		int sock = -1;
+
+		ret = WAITRESS_RET_OK;
+
+		if ((sock = socket (gacurr->ai_family, gacurr->ai_socktype,
+				gacurr->ai_protocol)) == -1) {
+			ret = WAITRESS_RET_SOCK_ERR;
+		} else {
+			int pollres;
+
+			/* we need shorter timeouts for connect() */
+			fcntl (sock, F_SETFL, O_NONBLOCK);
+
+			/* increase socket receive buffer */
+			const int sockopt = 5*1024*1024;
+			setsockopt (sock, SOL_SOCKET, SO_RCVBUF, &sockopt,
+					sizeof (sockopt));
+
+			/* non-blocking connect will return immediately */
+			connect (sock, gacurr->ai_addr, gacurr->ai_addrlen);
+
+			pollres = WaitressPollLoop (sock, POLLOUT, waith->timeout);
+			if (pollres == 0) {
+				ret = WAITRESS_RET_TIMEOUT;
+			} else if (pollres == -1) {
+				ret = WAITRESS_RET_ERR;
+			} else {
+				/* check connect () return value */
+				socklen_t pollresSize = sizeof (pollres);
+				getsockopt (sock, SOL_SOCKET, SO_ERROR, &pollres,
+						&pollresSize);
+				if (pollres != 0) {
+					ret = WAITRESS_RET_CONNECT_REFUSED;
+				} else {
+					/* this one is working */
+					waith->request.sockfd = sock;
+					break;
+				}
+			}
+			close (sock);
+		}
 	}
 
-	/* we need shorter timeouts for connect() */
-	fcntl (waith->request.sockfd, F_SETFL, O_NONBLOCK);
-
-	/* increase socket receive buffer */
-	const int sockopt = 256*1024;
-	setsockopt (waith->request.sockfd, SOL_SOCKET, SO_RCVBUF, &sockopt,
-			sizeof (sockopt));
-
-	/* non-blocking connect will return immediately */
-	connect (waith->request.sockfd, res->ai_addr, res->ai_addrlen);
-
-	pollres = WaitressPollLoop (waith->request.sockfd, POLLOUT,
-			waith->timeout);
-	freeaddrinfo (res);
-	if (pollres == 0) {
-		return WAITRESS_RET_TIMEOUT;
-	} else if (pollres == -1) {
-		return WAITRESS_RET_ERR;
-	}
-	/* check connect () return value */
-	socklen_t pollresSize = sizeof (pollres);
-	getsockopt (waith->request.sockfd, SOL_SOCKET, SO_ERROR, &pollres,
-			&pollresSize);
-	if (pollres != 0) {
-		return WAITRESS_RET_CONNECT_REFUSED;
+	freeaddrinfo (gares);
+	/* could not connect to any of the addresses */
+	if (ret != WAITRESS_RET_OK) {
+		return ret;
 	}
 
 	if (waith->url.tls) {
+		WaitressReturn_t wRet;
+
 		/* set up proxy tunnel */
 		if (WaitressProxyEnabled (waith)) {
 			char buf[256];
 			size_t size;
-			WaitressReturn_t wRet;
 
 			snprintf (buf, sizeof (buf), "CONNECT %s:%s HTTP/"
 					WAITRESS_HTTP_VERSION "\r\n"
@@ -883,8 +910,8 @@ static WaitressReturn_t WaitressConnect (WaitressHandle_t *waith) {
 			return WAITRESS_RET_TLS_HANDSHAKE_ERR;
 		}
 
-		if (WaitressTlsVerify (waith) != 0) {
-			return WAITRESS_RET_TLS_HANDSHAKE_ERR;
+		if ((wRet = WaitressTlsVerify (waith)) != WAITRESS_RET_OK) {
+			return wRet;
 		}
 
 		/* now we can talk encrypted */
@@ -1000,6 +1027,10 @@ static WaitressReturn_t WaitressReceiveHeaders (WaitressHandle_t *waith,
 							hdrParseMode = HDRM_LINES;
 							break;
 
+						case 400:
+							return WAITRESS_RET_BAD_REQUEST;
+							break;
+
 						case 403:
 							return WAITRESS_RET_FORBIDDEN;
 							break;
@@ -1086,6 +1117,12 @@ static WaitressReturn_t WaitressReceiveResponse (WaitressHandle_t *waith) {
 				/* go on */
 				break;
 		}
+		if (waith->request.contentLengthKnown &&
+				waith->request.contentReceived >= waith->request.contentLength) {
+			/* don’t call read() again if we know the body’s size and have all
+			 * of it already */
+			break;
+		}
 		READ_RET (buf, WAITRESS_BUFFER_SIZE-1, &recvSize);
 	} while (recvSize > 0);
 
@@ -1105,6 +1142,7 @@ WaitressReturn_t WaitressFetchCall (WaitressHandle_t *waith) {
 	waith->request.dataHandler = WaitressHandleIdentity;
 	waith->request.read = WaitressOrdinaryRead;
 	waith->request.write = WaitressOrdinaryWrite;
+	waith->request.contentLengthKnown = false;
 
 	if (waith->url.tls) {
 		gnutls_init (&waith->request.tlsSession, GNUTLS_CLIENT);
@@ -1227,8 +1265,8 @@ const char *WaitressErrorToStr (WaitressReturn_t wRet) {
 			return "TLS handshake failed.";
 			break;
 
-		case WAITRESS_RET_TLS_TRUSTFILE_ERR:
-			return "Loading root certificates failed.";
+		case WAITRESS_RET_TLS_FINGERPRINT_MISMATCH:
+			return "TLS fingerprint mismatch.";
 			break;
 
 		default:
@@ -1236,124 +1274,4 @@ const char *WaitressErrorToStr (WaitressReturn_t wRet) {
 			break;
 	}
 }
-
-#ifdef TEST
-/* test cases for libwaitress */
-
-#include <stdio.h>
-#include <stdbool.h>
-#include <string.h>
-#include "waitress.h"
-
-#define streq(a,b) (strcmp(a,b) == 0)
-
-/*	string equality test (memory location or content)
- */
-static bool streqtest (const char *x, const char *y) {
-	return (x == y) || (x != NULL && y != NULL && streq (x, y));
-}
-
-/*	test WaitressSplitUrl
- *	@param tested url
- *	@param expected user
- *	@param expected password
- *	@param expected host
- *	@param expected port
- *	@param expected path
- */
-static void compareUrl (const char *url, const char *user,
-		const char *password, const char *host, const char *port,
-		const char *path) {
-	WaitressUrl_t splitUrl;
-
-	memset (&splitUrl, 0, sizeof (splitUrl));
-
-	WaitressSplitUrl (url, &splitUrl);
-
-	bool userTest, passwordTest, hostTest, portTest, pathTest, overallTest;
-
-	userTest = streqtest (splitUrl.user, user);
-	passwordTest = streqtest (splitUrl.password, password);
-	hostTest = streqtest (splitUrl.host, host);
-	portTest = streqtest (splitUrl.port, port);
-	pathTest = streqtest (splitUrl.path, path);
-
-	overallTest = userTest && passwordTest && hostTest && portTest && pathTest;
-
-	if (!overallTest) {
-		printf ("FAILED test(s) for %s\n", url);
-		if (!userTest) {
-			printf ("user: %s vs %s\n", splitUrl.user, user);
-		}
-		if (!passwordTest) {
-			printf ("password: %s vs %s\n", splitUrl.password, password);
-		}
-		if (!hostTest) {
-			printf ("host: %s vs %s\n", splitUrl.host, host);
-		}
-		if (!portTest) {
-			printf ("port: %s vs %s\n", splitUrl.port, port);
-		}
-		if (!pathTest) {
-			printf ("path: %s vs %s\n", splitUrl.path, path);
-		}
-	} else {
-		printf ("OK for %s\n", url);
-	}
-}
-
-/*	compare two strings
- */
-void compareStr (const char *result, const char *expected) {
-	if (!streq (result, expected)) {
-		printf ("FAIL for %s, result was %s\n", expected, result);
-	} else {
-		printf ("OK for %s\n", expected);
-	}
-}
-
-/*	test entry point
- */
-int main () {
-	/* WaitressSplitUrl tests */
-	compareUrl ("http://www.example.com/", NULL, NULL, "www.example.com", NULL,
-			"");
-	compareUrl ("http://www.example.com", NULL, NULL, "www.example.com", NULL,
-			NULL);
-	compareUrl ("http://www.example.com:80/", NULL, NULL, "www.example.com",
-			"80", "");
-	compareUrl ("http://www.example.com:/", NULL, NULL, "www.example.com", "",
-			"");
-	compareUrl ("http://:80/", NULL, NULL, "", "80", "");
-	compareUrl ("http://www.example.com/foobar/barbaz", NULL, NULL,
-			"www.example.com", NULL, "foobar/barbaz");
-	compareUrl ("http://www.example.com:80/foobar/barbaz", NULL, NULL,
-			"www.example.com", "80", "foobar/barbaz");
-	compareUrl ("http://foo:bar@www.example.com:80/foobar/barbaz", "foo", "bar",
-			"www.example.com", "80", "foobar/barbaz");
-	compareUrl ("http://foo:@www.example.com:80/foobar/barbaz", "foo", "",
-			"www.example.com", "80", "foobar/barbaz");
-	compareUrl ("http://foo@www.example.com:80/foobar/barbaz", "foo", NULL,
-			"www.example.com", "80", "foobar/barbaz");
-	compareUrl ("http://:foo@www.example.com:80/foobar/barbaz", "", "foo",
-			"www.example.com", "80", "foobar/barbaz");
-	compareUrl ("http://:@:80", "", "", "", "80", NULL);
-	compareUrl ("http://", NULL, NULL, NULL, NULL, NULL);
-	compareUrl ("http:///", NULL, NULL, "", NULL, "");
-	compareUrl ("http://foo:bar@", "foo", "bar", "", NULL, NULL);
-
-	/* WaitressBase64Encode tests */
-	compareStr (WaitressBase64Encode ("M"), "TQ==");
-	compareStr (WaitressBase64Encode ("Ma"), "TWE=");
-	compareStr (WaitressBase64Encode ("Man"), "TWFu");
-	compareStr (WaitressBase64Encode ("The quick brown fox jumped over the lazy dog."),
-			"VGhlIHF1aWNrIGJyb3duIGZveCBqdW1wZWQgb3ZlciB0aGUgbGF6eSBkb2cu");
-	compareStr (WaitressBase64Encode ("The quick brown fox jumped over the lazy dog"),
-			"VGhlIHF1aWNrIGJyb3duIGZveCBqdW1wZWQgb3ZlciB0aGUgbGF6eSBkb2c=");
-	compareStr (WaitressBase64Encode ("The quick brown fox jumped over the lazy do"),
-			"VGhlIHF1aWNrIGJyb3duIGZveCBqdW1wZWQgb3ZlciB0aGUgbGF6eSBkbw==");
-
-	return EXIT_SUCCESS;
-}
-#endif /* TEST */
 

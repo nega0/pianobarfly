@@ -1,3 +1,34 @@
+Release 2013.09.15
+
+- Generic linked lists for libpiano. This change breaks libpiano’s API and
+  ABI!
+- New reset volume keyboard shortcut (^)
+- libgcrypt error handling
+- Fix display of lists with more than 999 items
+- Fix duplicate/“ghost” stations
+- Fix libwaitress not trying all addresses returned by getaddrinfo
+
+Release 2013.05.19
+
+- Keyboard shortcuts for play/pause, config setting act_songpause has been
+  renamed to act_songpausetoggle
+- Better error handling of audio file download errors
+- Fix TLS read error when using Pandora One tuner URL
+- Fix a bug where rating a song from a shared station, played by quickmix
+  resulted in an error message
+- Fix wrong name when deleting station from history menu
+- New events for genre station selection: stationfetchgenre, stationaddgenre
+- Minor Makefile and documentation bugfixes/improvements
+
+Release 2012.12.01
+
+- Save last station and volume to statefile
+- Password can be read from external command (setting password_command)
+- Secure RPC port can be changed now (setting rpc_tls_port)
+- Gracefully recover from AAC decoding errors
+- New default fingerprint for tuner.pandora.com
+- Bugfixes: HTTP chunked decoder, style, memory leaks
+
 Release 2012.09.07
 
 - Defunct move song (keybinding 'm') feature removed
@@ -5,7 +36,7 @@ Release 2012.09.07
 - '<space>' (setting act_songpause2) toggles pause too
 - Makefile: Auto-dependency generation
 - Correctly initialize libgcrypt
-- headless_pianobar wrapper added
+- headless_pianobarfly wrapper added
 
 Release 2012.06.24
 
