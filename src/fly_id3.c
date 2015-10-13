@@ -25,6 +25,10 @@
  * IN THE SOFTWARE.
  */
 
+#ifndef __FreeBSD__
+#define _BSD_SOURCE /* mkstemp() */
+#endif
+
 #if defined ENABLE_MAD && ENABLE_ID3TAG
 
 #include <assert.h>
