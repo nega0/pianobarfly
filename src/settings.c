@@ -147,9 +147,9 @@ void BarSettingsRead (BarSettings_t *settings) {
 	settings->outkey = strdup ("6#26FRL$ZWD");
 	settings->fifo = malloc (PATH_MAX * sizeof (*settings->fifo));
 	BarGetXdgConfigDir (PACKAGE "/ctl", settings->fifo, PATH_MAX);
-	memcpy (settings->tlsFingerprint, "\x2D\x0A\xFD\xAF\xA1\x6F\x4B\x5C\x0A"
-                        "\x43\xF3\xCB\x1D\x47\x52\xF9\x53\x55\x07\xC0",
-                        sizeof (settings->tlsFingerprint));
+	memcpy(settings->tlsFingerprint, "\x13\xCC\x51\xAC\x0C\x31\xCD\x96\xC5"
+		"\x50\x15\xC7\x69\x14\x36\x0F\x7A\xC4\x1A\x00",
+		sizeof(settings->tlsFingerprint));
 	settings->audioFileDir = strdup(BAR_DEFAULT_AUDIO_FILE_DIR);
 	settings->audioFileName = strdup(BAR_DEFAULT_AUDIO_FILE_NAME);
 
