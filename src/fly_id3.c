@@ -240,8 +240,7 @@ int BarFlyID3WriteFile(char const* file_path, struct id3_tag const* tag,
 	int tmp_file = -1;
 	uint8_t audio_buffer[BAR_FLY_COPY_BLOCK_SIZE];
 	char tmp_file_path[FILENAME_MAX];
-	strncpy(tmp_file_path, settings->audioFileDir, strlen(settings->audioFileDir)+1);
-	strncat(tmp_file_path, "/pianobarfly-XXXXXX", 19+1);
+	strncat(tmp_file_path, "pianobarfly-XXXXXX", 18+1);
 	size_t read_count;
 	size_t write_count;
 
